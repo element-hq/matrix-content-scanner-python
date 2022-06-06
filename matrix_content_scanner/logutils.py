@@ -13,7 +13,7 @@
 #  limitations under the License.
 import logging
 from contextvars import ContextVar
-from typing import Callable, Any
+from typing import Any, Callable
 
 from twisted.web.http import Request
 
