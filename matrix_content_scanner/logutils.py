@@ -15,8 +15,6 @@ import logging
 from contextvars import ContextVar
 from typing import Any
 
-from twisted.web.http import Request
-
 # The serverName/mediaId path of the media.
 media_path: ContextVar[str] = ContextVar("media_path")
 # The request being performed (download, thumbnail, scan, etc).
@@ -43,23 +41,13 @@ def setup_custom_factory() -> None:
     logging.setLogRecordFactory(_factory)
 
 
-def set_context_from_request(request: Request) -> None:
-    """Set the media_path and request_type ContextVars from the given request if possible.
+def set_request_type_in_context(v: str) -> None:
+    """Sets the request_type ContextVar to the given value.
 
     Args:
-        request: The request to set the context from.
+        v: The value to set the ContextVar.
     """
-    assert request.path is not None
-    path = request.path.decode("utf-8")
-
-    # We're only interested in the bit after /_matrix/media_proxy/unstable
-    parts = path.split("/")[4:]
-    request_type.set(parts[0])
-
-    # If we have more than one part, then we likely have the media path as well in the
-    # request's path.
-    if len(parts) == 3:
-        media_path.set("/".join(parts[1:]))
+    request_type.set(v)
 
 
 def set_media_path_in_context(v: str) -> None:
