@@ -1,0 +1,57 @@
+# Configuration for hosting the HTTP(S) API.
+web:
+    host: 127.0.0.1
+    port: 8080
+
+# Configuration for scanning files.
+scan:
+    # The script to run to scan a file. This script will be called with a path to the
+    # downloaded file as its only argument, e.g. "./example.sh /temp/foo.bar/my_file".
+    # Required.
+    script: "./example.sh"
+    # Directory in which to download files for scanning. Each file downloaded is removed
+    # after the scan has completed.
+    # Required.
+    temp_directory: "/tmp"
+    # List of exit codes from the scanning script that shouldn't cause the result of the
+    # scan to be cached in memory for future requests.
+    # Optional, defaults to an empty list (i.e. results are cached regardless of the
+    # script's exit code).
+    do_not_cache_exit_codes: [1, 2]
+    # Command to run to remove files from disk once they have been scanned.
+    # Optional, defaults to "rm".
+    removal_command: "srm"
+    # List of allowed MIME types. If a file has a MIME type that's not in this list, its
+    # scan is considered failed.
+    # Optional, defaults to allowing all MIME types.
+    allowed_mimetypes: ["image/jpeg"]
+
+# Configuration for downloading files.
+# When downloading files directly from their respective homeservers (which is the default
+# behaviour), the homeservers' default URLs are determined using .well-known discovery
+# (defaults to using the homeserver's domain if not available).
+# See https://spec.matrix.org/latest/client-server-api/#server-discovery for more info.
+# Settings in this section (apart from `base_homeserver_url`) apply to .well-known
+# discovery requests as well as file download ones.
+download:
+    # If provided, all files are downloaded using the homeserver at this URL. If this
+    # setting is provided, .well-known discovery is not used to determine the base URL
+    # to use.
+    # Optional, defaults to downloading files directly from their respective homeservers.
+    base_homeserver_url: "https://matrix.org"
+    # HTTP(S) proxy to use when sending requests.
+    # Optional, defaults to no proxy.
+    proxy: "http://10.0.0.1:3128"
+    # Headers to send in outgoing requests.
+    # Optional, defaults to no additional headers.
+    additional_headers:
+        user-agent: "matrix-content-scanner"
+
+# Configuration for decrypting Olm-encrypted request bodies.
+crypto:
+    # The path to the Olm pickle file.
+    # Required.
+    pickle_path: "./pickle"
+    # The key to the pickle.
+    # Required.
+    pickle_key: "this_is_a_secret"
