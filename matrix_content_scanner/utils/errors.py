@@ -11,9 +11,26 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from matrix_content_scanner.utils.constants import ErrCode
+
+
+class ContentScannerRestError(Exception):
+    """An error that is converted into an error response by the REST resource."""
+
+    def __init__(self, http_status: int, reason: ErrCode, info: str) -> None:
+        super(Exception, self).__init__(info)
+        self.http_status = http_status
+        self.reason = reason
+        self.info = info
 
 
 class ConfigError(Exception):
     """An error indicating an issue with the configuration file."""
+
+    pass
+
+
+class WellKnownDiscoveryError(Exception):
+    """An error indicating a failure when attempting a .well-known discovery."""
 
     pass
