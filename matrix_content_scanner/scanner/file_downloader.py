@@ -161,21 +161,7 @@ class FileDownloader:
         if self._base_url is not None:
             base_url = self._base_url
         else:
-            base_url = None
-
-            try:
-                base_url = await self._discover_via_well_known(server_name)
-            except WellKnownDiscoveryError as e:
-                # We don't catch ContentScannerRestErrors here because if one makes its
-                # way up here then it likely means that trying to reach https://server_name
-                # failed, in which case we're unlikely to be able to reach it again when
-                # downloading the file, so we let the error escalate.
-                logger.info("Failed to discover server via well-known: %s", e)
-
-            if base_url is None:
-                # base_url might be None if either .well-known discovery failed, or we
-                # didn't find a .well-known file.
-                base_url = "https://" + server_name
+            base_url = "https://" + server_name
 
         prefix = self.MEDIA_DOWNLOAD_PREFIX
         query = None
@@ -256,87 +242,6 @@ class FileDownloader:
             content=body,
             response_headers=headers,
         )
-
-    async def _discover_via_well_known(self, domain: str) -> Optional[str]:
-        """Try to discover the base URL for the given domain via .well-known client
-        discovery.
-
-        Args:
-            domain: The domain to discover the base URL for.
-
-        Returns:
-            The base URL to use, or None if no .well-known client file exist for this
-            domain.
-
-        Raises:
-            WellKnownDiscoveryError if an error happened during the discovery attempt.
-            twisted.internet.error.DNSLookupError if either the domain or the base URL
-                the .well-known client file advertises can't be reached.
-        """
-        # Check if we already have a result cached, and if so return with it straight
-        # away.
-        if domain in self._well_known_cache:
-            logger.info("Fetching .well-known discovery result from cache")
-            return self._well_known_cache[domain]
-
-        # Attempt to download the .well-known file.
-        url = f"https://{domain}/.well-known/matrix/client"
-        code, body, _ = await self._get(url)
-
-        if code != 200:
-            if code == 404:
-                # If the response status is 404, then the homeserver hasn't set up
-                # .well-known discovery, in which case we tell the caller that there's
-                # no base URL to use rather than raising an error.
-                # The difference is that we want to cache this result here, but we don't
-                # want to do that when the discovery fails due to an incorrectly set up
-                # file or an unavailable homeserver, which might be fixed later on.
-                logger.info(
-                    ".well-known discover has not been set up for this homeserver"
-                )
-                self._well_known_cache[domain] = None
-                return None
-
-            raise WellKnownDiscoveryError(
-                f"Server responded with non-200 status {code}"
-            )
-
-        # Try to parse the JSON content.
-        try:
-            parsed_body = json.loads(body)
-        except json.decoder.JSONDecodeError as e:
-            raise WellKnownDiscoveryError(e)
-
-        # Check if the parsed content has a base URL in the right place.
-        try:
-            base_url: str = parsed_body["m.homeserver"]["base_url"]
-        except (KeyError, TypeError):
-            # We might get a KeyError if we're trying to reach a key that doesn't exist,
-            # and we might get a TypeError if parsed_body or parsed_body["m.homeserver"]
-            # isn't a dictionary.
-            raise WellKnownDiscoveryError("Response did not include a usable URL")
-
-        # Remove the trailing slash if there is one.
-        if base_url.endswith("/"):
-            base_url = base_url[:-1]
-
-        # Check if the base URL is one for a working homeserver.
-        url = base_url + "/_matrix/client/versions"
-        try:
-            code, _, _ = await self._get(url)
-        except ContentScannerRestError:
-            raise WellKnownDiscoveryError(
-                "Base URL does not seem to point to a working homeserver"
-            )
-
-        if code != 200:
-            raise WellKnownDiscoveryError(
-                "Base URL does not seem to point to a working homeserver"
-            )
-
-        # Cache and return the result.
-        self._well_known_cache[domain] = base_url
-        return base_url
 
     async def _get(self, url: str) -> Tuple[int, bytes, Headers]:
         """Sends a GET request to the provided URL.
