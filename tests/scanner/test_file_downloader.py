@@ -81,14 +81,19 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         self.downloader._base_url = None
         await self.downloader.download_file(MEDIA_PATH)
 
-        # Check that we've tried making a .well-known discovery request before
-        # downloading the file.
-        self.assertEqual(self.get_mock.call_count, 2)
+        # # Check that we've tried making a .well-known discovery request before
+        # # downloading the file.
+        # self.assertEqual(self.get_mock.call_count, 1)
+        # self.assertEqual(
+        #     self.get_mock.mock_calls[0], call("https://foo/.well-known/matrix/client")
+        # )
+        # self.assertEqual(
+        #     self.get_mock.mock_calls[1],
+        #     call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH),
+        # )
+
         self.assertEqual(
-            self.get_mock.mock_calls[0], call("https://foo/.well-known/matrix/client")
-        )
-        self.assertEqual(
-            self.get_mock.mock_calls[1],
+            self.get_mock.mock_calls[0],
             call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH),
         )
 
