@@ -22,10 +22,7 @@ from twisted.web.http_headers import Headers
 from twisted.web.iweb import IAgent, IResponse
 
 from matrix_content_scanner.utils.constants import ErrCode
-from matrix_content_scanner.utils.errors import (
-    ContentScannerRestError,
-    WellKnownDiscoveryError,
-)
+from matrix_content_scanner.utils.errors import ContentScannerRestError
 from matrix_content_scanner.utils.types import MediaDescription
 
 if TYPE_CHECKING:

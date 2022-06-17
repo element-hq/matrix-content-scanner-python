@@ -11,18 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import json
-from typing import Tuple, Union
+from typing import Tuple
 from unittest.mock import Mock, call
 
 import aiounittest
 from twisted.web.http_headers import Headers
 
-from matrix_content_scanner.utils.errors import (
-    ContentScannerRestError,
-    WellKnownDiscoveryError,
-)
-from matrix_content_scanner.utils.types import JsonDict
+from matrix_content_scanner.utils.errors import ContentScannerRestError
 from tests.testutils import (
     MEDIA_PATH,
     SMALL_PNG,
