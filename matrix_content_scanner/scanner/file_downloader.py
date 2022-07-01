@@ -14,6 +14,7 @@
 import json
 import logging
 import urllib.parse
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from twisted.internet.endpoints import HostnameEndpoint, wrapClientTLS
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class _MediaNotFoundException(Exception):
+class _PathNotFoundException(Exception):
     """An exception raised to signal that a URL could not be found on the remote
     homeserver.
     """
@@ -105,7 +106,7 @@ class FileDownloader:
         # Attempt to retrieve the file at the generated URL.
         try:
             file = await self._get_file_content(url)
-        except _MediaNotFoundException:
+        except _PathNotFoundException:
             # If the file could not be found, it might be because the homeserver hasn't
             # been upgraded to a version that supports Matrix v1.1 endpoints yet, so try
             # again with an r0 endpoint.
@@ -117,10 +118,10 @@ class FileDownloader:
 
             try:
                 file = await self._get_file_content(url)
-            except _MediaNotFoundException:
+            except _PathNotFoundException:
                 # If that still failed, raise an error.
                 raise ContentScannerRestError(
-                    http_status=502,
+                    http_status=HTTPStatus.BAD_GATEWAY,
                     reason=ErrCode.REQUEST_FAILED,
                     info="File not found",
                 )
@@ -171,12 +172,20 @@ class FileDownloader:
             query = ""
             for key, items in thumbnail_params.items():
                 for item in items:
-                    query += "%s=%s&" % (key, item)
+                    query += "%s=%s&" % (
+                        urllib.parse.quote(key),
+                        urllib.parse.quote(item),
+                    )
             query = query[:-1]
 
         # Build the full URL.
         path_prefix = prefix % endpoint_version
-        url = "%s/%s/%s/%s" % (base_url, path_prefix, server_name, media_id)
+        url = "%s/%s/%s/%s" % (
+            base_url,
+            path_prefix,
+            urllib.parse.quote(server_name),
+            urllib.parse.quote(media_id),
+        )
         if query is not None:
             # If there are query parameters, append them to the URL.
             url += "?%s" % query
@@ -193,9 +202,11 @@ class FileDownloader:
             A description of the file (including its full content).
 
         Raises:
-            _MediaNotFoundException: the server returned a non-200 status that's not a
-                5xx error.
-            ContentScannerRestError: the server returned a 5xx status.
+            _PathNotFoundException: the server returned an error that can mean the path
+                of the request wasn't understood, e.g. because we requested a v3 URL but
+                the server only supports r0.
+            ContentScannerRestError: the server returned a non-200 status which cannot
+                meant that the path wasn't understood.
         """
         code, body, headers = await self._get(url)
 
@@ -211,15 +222,15 @@ class FileDownloader:
                 try:
                     err = json.loads(body)
                     if err["errcode"] == "M_UNRECOGNIZED":
-                        raise _MediaNotFoundException
+                        raise _PathNotFoundException
                 except (json.decoder.JSONDecodeError, KeyError):
                     pass
 
             if code == 404:
-                raise _MediaNotFoundException
+                raise _PathNotFoundException
 
             raise ContentScannerRestError(
-                502,
+                HTTPStatus.BAD_GATEWAY,
                 ErrCode.REQUEST_FAILED,
                 "The remote server responded with an error",
             )
@@ -229,7 +240,7 @@ class FileDownloader:
         content_type_headers = headers.getRawHeaders("content-type")
         if content_type_headers is None or len(content_type_headers) != 1:
             raise ContentScannerRestError(
-                502,
+                HTTPStatus.BAD_GATEWAY,
                 ErrCode.REQUEST_FAILED,
                 "The remote server responded with an invalid amount of Content-Type headers",
             )
@@ -263,7 +274,7 @@ class FileDownloader:
         except Exception as e:
             logger.error(e)
             raise ContentScannerRestError(
-                502,
+                HTTPStatus.BAD_GATEWAY,
                 ErrCode.REQUEST_FAILED,
                 "Failed to reach the remote server",
             )
