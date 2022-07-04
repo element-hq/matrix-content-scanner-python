@@ -14,6 +14,7 @@
 import argparse
 import logging
 import sys
+from functools import cached_property
 
 import twisted.internet.reactor
 import yaml
@@ -24,6 +25,7 @@ from yaml.scanner import ScannerError
 from matrix_content_scanner import logutils
 from matrix_content_scanner.config import MatrixContentScannerConfig
 from matrix_content_scanner.httpserver import HTTPServer
+from matrix_content_scanner.scanner.file_downloader import FileDownloader
 from matrix_content_scanner.utils.errors import ConfigError
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,10 @@ class MatrixContentScanner:
     ) -> None:
         self.config = config
         self.reactor = reactor
+
+    @cached_property
+    def file_downloader(self) -> FileDownloader:
+        return FileDownloader(self)
 
     def start(self) -> None:
         """Start the HTTP server and start the reactor."""
