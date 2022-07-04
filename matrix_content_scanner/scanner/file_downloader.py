@@ -204,7 +204,9 @@ class FileDownloader:
         Raises:
             _PathNotFoundException: the server returned an error that can mean the path
                 of the request wasn't understood, e.g. because we requested a v3 URL but
-                the server only supports r0.
+                the server only supports r0, or the media couldn't be found.
+                We raise a separate error class in this case because if the error is due
+                to a v3 vs r0 path we want to retry the request on the r0 path.
             ContentScannerRestError: the server returned a non-200 status which cannot
                 meant that the path wasn't understood.
         """
