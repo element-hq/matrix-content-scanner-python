@@ -11,8 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import hashlib
-import json
 import logging
 import os.path
 import subprocess
@@ -21,7 +19,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 import attr
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
-from mautrix.util import magic
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
