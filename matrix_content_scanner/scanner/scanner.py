@@ -12,8 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-import os.path
+import os
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import attr
@@ -42,7 +43,9 @@ class Scanner:
         self._file_downloader = mcs.file_downloader
         self._script = mcs.config.scan.script
         self._removal_command = mcs.config.scan.removal_command
-        self._store_directory = os.path.abspath(mcs.config.scan.temp_directory)
+        self._store_directory = Path(mcs.config.scan.temp_directory).resolve(
+            strict=True
+        )
 
     async def scan_file(
         self,
@@ -155,22 +158,22 @@ class Scanner:
                 file to be written outside the configured directory.
         """
         # Figure out the full absolute path for this file. Given _store_directory is
-        # already an absolute path using os.path.join is likely good enough, but we want
+        # already an absolute path, just joining paths is likely good enough, but we want
         # to make sure there isn't any '..' etc in the full path, to make sure we don't
         # try to write outside the directory.
-        full_path = os.path.abspath(os.path.join(self._store_directory, media_path))
-        if not full_path.startswith(self._store_directory):
+        full_path = self._store_directory.joinpath(media_path).resolve()
+        if not full_path.is_relative_to(self._store_directory):
             raise FileDirtyError("Malformed media ID")
 
         logger.info("Writing file to %s", full_path)
 
         # Create any directory we need.
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        os.makedirs(full_path.parent, exist_ok=True)
 
         with open(full_path, "wb") as fp:
             fp.write(body)
 
-        return full_path
+        return str(full_path)
 
     def _run_scan(self, file_name: str) -> int:
         """Runs the scan script, passing it the given file name.

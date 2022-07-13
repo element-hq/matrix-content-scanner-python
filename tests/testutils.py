@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import os
 from binascii import unhexlify
 from typing import Optional
 
@@ -91,6 +92,10 @@ def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScann
     Args:
         config: The optional provided config.
     """
+    # Create the temporary directory that we'll use so the scanner doesn't complain about
+    # it not existing.
+    os.makedirs(os.path.abspath("temp"), exist_ok=True)
+
     # We define the default configuration here rather than as a constant outside of a
     # function because otherwise a test that sets its own config would have side effects
     # on the config used for other tests.
