@@ -162,7 +162,9 @@ class Scanner:
         # to make sure there isn't any '..' etc in the full path, to make sure we don't
         # try to write outside the directory.
         full_path = self._store_directory.joinpath(media_path).resolve()
-        if not full_path.is_relative_to(self._store_directory):
+        if not f"{full_path}{os.sep}".startswith(str(self._store_directory)):
+            # Ideally we'd use full_path.is_relative_to but that's only available from
+            # Python 3.9 and we want to support 3.8.
             raise FileDirtyError("Malformed media ID")
 
         logger.info("Writing file to %s", full_path)
