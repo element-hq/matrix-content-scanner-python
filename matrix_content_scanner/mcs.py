@@ -26,6 +26,7 @@ from matrix_content_scanner import logutils
 from matrix_content_scanner.config import MatrixContentScannerConfig
 from matrix_content_scanner.httpserver import HTTPServer
 from matrix_content_scanner.scanner.file_downloader import FileDownloader
+from matrix_content_scanner.scanner.scanner import Scanner
 from matrix_content_scanner.utils.errors import ConfigError
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,10 @@ class MatrixContentScanner:
     @cached_property
     def file_downloader(self) -> FileDownloader:
         return FileDownloader(self)
+
+    @cached_property
+    def scanner(self) -> Scanner:
+        return Scanner(self)
 
     def start(self) -> None:
         """Start the HTTP server and start the reactor."""

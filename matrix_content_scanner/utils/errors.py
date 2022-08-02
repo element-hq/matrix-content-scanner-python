@@ -24,6 +24,17 @@ class ContentScannerRestError(Exception):
         self.info = info
 
 
+class FileDirtyError(ContentScannerRestError):
+    """An error indicating that the file being scanned is dirty."""
+
+    def __init__(self, info: str = "***VIRUS DETECTED***") -> None:
+        super(FileDirtyError, self).__init__(
+            http_status=403,
+            reason=ErrCode.NOT_CLEAN,
+            info=info,
+        )
+
+
 class ConfigError(Exception):
     """An error indicating an issue with the configuration file."""
 
