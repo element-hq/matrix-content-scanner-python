@@ -157,14 +157,14 @@ class Scanner:
             FileDirtyError if the media path is malformed in a way that would cause the
                 file to be written outside the configured directory.
         """
-        # Figure out the full absolute path for this file. Given _store_directory is
-        # already an absolute path, just joining paths is likely good enough, but we want
-        # to make sure there isn't any '..' etc in the full path, to make sure we don't
-        # try to write outside the directory.
+        # Figure out the full absolute path for this file.
         full_path = self._store_directory.joinpath(media_path).resolve()
-        if not f"{full_path}{os.sep}".startswith(str(self._store_directory)):
-            # Ideally we'd use full_path.is_relative_to but that's only available from
-            # Python 3.9 and we want to support 3.8.
+        try:
+            # Check if the full path is a sub-path to the store's path, to make sure
+            # there isn't any '..' etc in the full path, which would cause us to try
+            # writing outside the store's directory.
+            full_path.relative_to(self._store_directory)
+        except ValueError:
             raise FileDirtyError("Malformed media ID")
 
         logger.info("Writing file to %s", full_path)
