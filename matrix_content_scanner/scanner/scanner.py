@@ -11,6 +11,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import hashlib
+import json
 import logging
 import os
 import subprocess
@@ -42,6 +44,8 @@ class Scanner:
     def __init__(self, mcs: "MatrixContentScanner"):
         self._file_downloader = mcs.file_downloader
         self._script = mcs.config.scan.script
+        self._result_cache: Dict[str, CacheEntry] = {}
+        self._exit_codes_to_ignore = mcs.config.scan.do_not_cache_exit_codes
         self._removal_command = mcs.config.scan.removal_command
         self._store_directory = Path(mcs.config.scan.temp_directory).resolve(
             strict=True
@@ -76,6 +80,29 @@ class Scanner:
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
+        # Compute the cache key for the media.
+        cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
+
+        # Return the cached result if there's one.
+        if cache_key in self._result_cache:
+            cache_entry = self._result_cache[cache_key]
+            logger.info("Returning cached result %s", cache_entry.result)
+
+            if cache_entry.result is False:
+                # If we defined additional info when caching the error, feed that into
+                # the new error.
+                if cache_entry.info is not None:
+                    raise FileDirtyError(info=cache_entry.info)
+                else:
+                    raise FileDirtyError()
+            else:
+                if cache_entry.media is not None:
+                    return cache_entry.media
+
+                logger.warning(
+                    "Result cache is confused: missing media but result is True.",
+                )
+
         # Check if the media path is valid and only contains one slash (otherwise we'll
         # have issues parsing it further down the line).
         if media_path.count("/") != 1:
@@ -93,11 +120,39 @@ class Scanner:
             media_content = self._decrypt_file(media_content, metadata)
 
         # Write the file to disk.
-        file_path = self._write_file_to_disk(media_path, media_content)
+        try:
+            file_path = self._write_file_to_disk(media_path, media_content)
+        except FileDirtyError as e:
+            # A FileDirtyError will be raised if the media path is built in a way that
+            # can lead to writing outside of the configured directory.
+            self._result_cache[cache_key] = CacheEntry(
+                result=False,
+                info=e.info,
+            )
+            raise
 
         # Scan the file and see if the result is positive or negative.
         exit_code = self._run_scan(file_path)
         result = exit_code == 0
+
+        # If the exit code isn't part of the ones we should ignore, cache the result.
+        if (
+            self._exit_codes_to_ignore is None
+            or exit_code not in self._exit_codes_to_ignore
+        ):
+            logger.info("Caching result %s", result)
+
+            # Only cache the media if the scan is successful, because this means we might
+            # need to show it to the user again. If the test fails, don't store it to save
+            # memory.
+            self._result_cache[cache_key] = CacheEntry(
+                result=result,
+                media=media if result is True else None,
+            )
+        else:
+            logger.info(
+                "Scan returned exit code %d which must not be cached", exit_code
+            )
 
         # Delete the file now that we've scanned it.
         logger.info("Scan has finished, removing file")
@@ -110,6 +165,34 @@ class Scanner:
             raise FileDirtyError()
 
         return media
+
+    def _get_cache_key_for_file(
+        self,
+        media_path: str,
+        metadata: Optional[JsonDict],
+        thumbnail_params: Optional[Dict[str, List[str]]],
+    ) -> str:
+        """Generates the key to use to store the result for the given media in the result
+        cache.
+
+        The key is computed using the media's `server_name/media_id` path, but also the
+        metadata dict (stringified), in case e.g. the decryption key changes, as well as
+        the parameters used to generate the thumbnail if any (stringified), to
+        differentiate thumbnails from full-sized media.
+        The resulting key is a sha256 hash of the concatenation of these two values.
+
+        Args:
+            media_path: The `server_name/media_id` path of the file to scan.
+            metadata: The file's metadata (or None if the file isn't encrypted).
+            thumbnail_params: The parameters to generate thumbnail with. If no parameter
+                is passed, this will be an empty dict. If the media being requested is not
+                a thumbnail, this will be None.
+        """
+        raw_metadata = json.dumps(metadata)
+        raw_params = json.dumps(thumbnail_params)
+        base_string = media_path + raw_metadata + raw_params
+
+        return hashlib.sha256(base_string.encode("ascii")).hexdigest()
 
     def _decrypt_file(self, body: bytes, metadata: JsonDict) -> bytes:
         """Extract decryption information from the file's metadata and decrypt it.

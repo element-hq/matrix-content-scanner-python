@@ -74,6 +74,59 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         media = await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
         self.assertEqual(media.content, SMALL_PNG_ENCRYPTED)
 
+    async def test_cache(self) -> None:
+        """Tests that scan results are cached."""
+        # Scan the file a first time, and check that the downloader has been called.
+        await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Scan the file a second time, and check that the downloader has not been called
+        # this time.
+        media = await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+        self.assertEqual(media.content, SMALL_PNG)
+
+    async def test_cache_encrypted(self) -> None:
+        """Tests that scan results for encrypted files are cached, and that the cached
+        file is the encrypted version, not the decrypted one."""
+        self._setup_encrypted()
+
+        # Scan the file a first time, and check that the downloader has been called.
+        await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Scan the file a second time, and check that the downloader has not been called
+        # this time, and that the media returned is the encrypted copy.
+        media = await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+        self.assertEqual(media.content, SMALL_PNG_ENCRYPTED)
+
+    async def test_cache_download_thumbnail(self) -> None:
+        """Tests that cached results for full file downloads are not used for thumbnails."""
+        await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        self.assertEqual(self.downloader_mock.call_count, 2)
+
+    async def test_cache_thumbnail_params(self) -> None:
+        """Tests that cached results for thumbnails are only used if the generation
+        parameters are the same.
+        """
+        # Scan a thumbnail and check that the downloader was called.
+        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Scan the thumbnail again and check that the cache result was used (since the
+        # downloader was not called)
+        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Scan a different thumbnail of the same media (with different parameters) and
+        # check that the downloader was called.
+        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"height": ["50"]})
+        self.assertEqual(self.downloader_mock.call_count, 2)
+
     async def test_different_encryption_key(self) -> None:
         """Tests that if some of the file's metadata changed, we don't match against the
         cache and we download the file again.
@@ -98,6 +151,38 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         self.assertEqual(cm.exception.reason, ErrCode.FAILED_TO_DECRYPT)
 
         # But it also causes it to be downloaded again because its metadata have changed.
+        self.assertEqual(self.downloader_mock.call_count, 2)
+
+    async def test_dont_cache_exit_codes(self) -> None:
+        """Tests that if the configuration specifies exit codes to ignore when running
+        the scanning script, we don't cache them.
+        """
+        self.scanner._exit_codes_to_ignore = [5]
+
+        # It's tricky to give a value to `scanner._script` that makes `_run_scan` return 5
+        # directly, so we just mock it here.
+        run_scan_mock = Mock(return_value=5)
+        self.scanner._run_scan = run_scan_mock  # type: ignore[assignment]
+
+        # Scan the file, we'll check later that it wasn't cached.
+        with self.assertRaises(FileDirtyError):
+            await self.scanner.scan_file(MEDIA_PATH)
+
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Update the mock so that the file is cached at the next scan.
+        run_scan_mock.return_value = 1
+
+        # Scan the file again to check that the file wasn't cached.
+        with self.assertRaises(FileDirtyError):
+            await self.scanner.scan_file(MEDIA_PATH)
+
+        self.assertEqual(self.downloader_mock.call_count, 2)
+
+        # The file should be cached now.
+        with self.assertRaises(FileDirtyError):
+            await self.scanner.scan_file(MEDIA_PATH)
+
         self.assertEqual(self.downloader_mock.call_count, 2)
 
     async def test_outside_temp_dir(self) -> None:
