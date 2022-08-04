@@ -127,6 +127,23 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"height": ["50"]})
         self.assertEqual(self.downloader_mock.call_count, 2)
 
+    async def test_cache_max_size(self) -> None:
+        """Tests that we don't cache files if they exceed the configured maximum file
+        size.
+        """
+        # Set the maximum file size to be just under the size of the file.
+        self.scanner._max_size_to_cache = len(SMALL_PNG) - 1
+
+        # Scan the file a first time, and check that the downloader has been called.
+        await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+
+        # Scan the file a second time, and check that the downloader has been called
+        # again.
+        media = await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 2)
+        self.assertEqual(media.content, SMALL_PNG)
+
     async def test_different_encryption_key(self) -> None:
         """Tests that if some of the file's metadata changed, we don't match against the
         cache and we download the file again.

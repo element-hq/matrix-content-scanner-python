@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import attr
 from jsonschema import ValidationError, validate
@@ -84,9 +84,18 @@ class ScanConfig:
 
     script: str
     temp_directory: str
-    do_not_cache_exit_codes: Optional[List[int]] = None
     removal_command: str = "rm"
     allowed_mimetypes: Optional[List[str]] = None
+
+
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class ResultCacheConfig:
+    """Configuration for caching scan results."""
+
+    max_size: int = 1024
+    ttl: Union[str, float] = "1w"
+    exit_codes_to_ignore: Optional[List[int]] = None
+    max_file_size: Optional[Union[str, float]] = None
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -120,3 +129,29 @@ class MatrixContentScannerConfig:
         self.scan = ScanConfig(**(config_dict.get("scan") or {}))
         self.crypto = CryptoConfig(**(config_dict.get("crypto") or {}))
         self.download = DownloadConfig(**(config_dict.get("download") or {}))
+        self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
+
+
+def parse_user_value(
+    v: Optional[Union[str, float]], parser: Callable[[str], float]
+) -> Optional[float]:
+    """Parse a given user-defined string value (such as durations or sizes) into a float.
+
+    If the value is None or is already a float, or is None, returns it directly.
+    Otherwise, use the provided parsing function.
+
+    Args:
+        v: The value to parse.
+        parser: The function to use to parse string values.
+
+    Returns:
+        The provided value if it's None or a float, otherwise the return value of the
+        parsing function.
+    """
+    if v is None:
+        return None
+
+    if isinstance(v, float):
+        return float(v)
+
+    return parser(v)

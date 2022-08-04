@@ -20,9 +20,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import attr
+from cachetools import TTLCache
+from humanfriendly import format_size, parse_size, parse_timespan
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 
+from matrix_content_scanner.config import parse_user_value
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict, MediaDescription
@@ -44,11 +47,28 @@ class Scanner:
     def __init__(self, mcs: "MatrixContentScanner"):
         self._file_downloader = mcs.file_downloader
         self._script = mcs.config.scan.script
-        self._result_cache: Dict[str, CacheEntry] = {}
-        self._exit_codes_to_ignore = mcs.config.scan.do_not_cache_exit_codes
         self._removal_command = mcs.config.scan.removal_command
         self._store_directory = Path(mcs.config.scan.temp_directory).resolve(
             strict=True
+        )
+
+        # Result cache settings.
+        cache_ttl = parse_user_value(
+            mcs.config.result_cache.ttl,
+            parser=parse_timespan,
+        )
+        # We know cache_ttl can't be None because the relevant configuration setting can't
+        # be None.
+        assert cache_ttl is not None
+
+        self._result_cache: TTLCache[str, CacheEntry] = TTLCache(
+            maxsize=mcs.config.result_cache.max_size,
+            ttl=cache_ttl,
+        )
+        self._exit_codes_to_ignore = mcs.config.result_cache.exit_codes_to_ignore
+        self._max_size_to_cache = parse_user_value(
+            mcs.config.result_cache.max_file_size,
+            parser=parse_size,
         )
 
     async def scan_file(
@@ -99,8 +119,14 @@ class Scanner:
                 if cache_entry.media is not None:
                     return cache_entry.media
 
-                logger.warning(
-                    "Result cache is confused: missing media but result is True.",
+                # If we don't have the media cached
+                logger.info(
+                    "Got a positive result from cache without a media, downloading file",
+                )
+
+                return await self._file_downloader.download_file(
+                    media_path=media_path,
+                    thumbnail_params=thumbnail_params,
                 )
 
         # Check if the media path is valid and only contains one slash (otherwise we'll
@@ -146,12 +172,28 @@ class Scanner:
         ):
             logger.info("Caching result %s", result)
 
+            cached_media = media if result is True else None
+
+            if (
+                self._max_size_to_cache is not None
+                and len(media.content) > self._max_size_to_cache
+            ):
+                # Don't cache the file's content if it exceeds the maximum allowed file
+                # size, to minimise memory usage.
+                logger.info(
+                    "File content has size %s, which is more than %s, not caching content",
+                    format_size(len(media.content)),
+                    format_size(self._max_size_to_cache),
+                )
+
+                cached_media = None
+
             # Only cache the media if the scan is successful, because this means we might
             # need to show it to the user again. If the test fails, don't store it to save
             # memory.
             self._result_cache[cache_key] = CacheEntry(
                 result=result,
-                media=media if result is True else None,
+                media=cached_media,
             )
         else:
             logger.info(
