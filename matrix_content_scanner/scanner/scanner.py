@@ -106,6 +106,10 @@ class Scanner:
         # Check if the media path is valid and only contains one slash (otherwise we'll
         # have issues parsing it further down the line).
         if media_path.count("/") != 1:
+            self._result_cache[cache_key] = CacheEntry(
+                result=False,
+                info="Malformed media ID",
+            )
             raise FileDirtyError("Malformed media ID")
 
         # Download the file, and decrypt it if necessary.
