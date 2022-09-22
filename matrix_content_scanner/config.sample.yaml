@@ -26,7 +26,7 @@ scan:
 # Results are stored in a time-based LRU (least recently used) cache to avoid having to
 # download and scan a file twice. There is a unique entry in this cache for each set of
 # media path (i.e. the "server_name/media_id" identifier for the media), thumbnailing
-# parameters and encryption metadata. This means that, for example, that the result for
+# parameters and encryption metadata. This means that, for example, the result for
 # the scan of the media "example.com/abc" and the result for the scan of the  *thumbnail*
 # of "example.com/abc" will be stored in two separate entries.
 #
