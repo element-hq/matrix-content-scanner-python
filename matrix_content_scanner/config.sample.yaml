@@ -21,7 +21,7 @@ scan:
     # Optional, defaults to allowing all MIME types.
     allowed_mimetypes: ["image/jpeg"]
 
-# Configuration of the cache scan results will be stored in.
+# Configuration of scan result caching.
 #
 # Results are stored in a time-based LRU (least recently used) cache to avoid having to
 # download and scan a file twice. There is a unique entry in this cache for each set of
