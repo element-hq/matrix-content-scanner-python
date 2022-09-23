@@ -12,20 +12,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import hashlib
-import json
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import attr
 from cachetools import TTLCache
-from humanfriendly import format_size, parse_size, parse_timespan
+from canonicaljson import encode_canonical_json
+from humanfriendly import format_size
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 
-from matrix_content_scanner.config import parse_user_value
+from matrix_content_scanner.config import parse_duration, parse_size
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict, MediaDescription
@@ -38,8 +38,15 @@ logger = logging.getLogger(__name__)
 
 @attr.s(auto_attribs=True, frozen=True)
 class CacheEntry:
+    """An entry in the scanner's result cache."""
+
+    # The result of the scan: True if the scan passed, False otherwise.
     result: bool
+    # The media that was scanned, so we can return it in future requests. We only cache
+    # it if the scan succeeded and the file's size does not exceed the configured limit,
+    # otherwise it's None.
     media: Optional[MediaDescription] = None
+    # Info to include in the FileDirtyError if the scan failed.
     info: Optional[str] = None
 
 
@@ -53,10 +60,7 @@ class Scanner:
         )
 
         # Result cache settings.
-        cache_ttl = parse_user_value(
-            mcs.config.result_cache.ttl,
-            parser=parse_timespan,
-        )
+        cache_ttl = parse_duration(mcs.config.result_cache.ttl)
         # We know cache_ttl can't be None because the relevant configuration setting can't
         # be None.
         assert cache_ttl is not None
@@ -65,11 +69,13 @@ class Scanner:
             maxsize=mcs.config.result_cache.max_size,
             ttl=cache_ttl,
         )
-        self._exit_codes_to_ignore = mcs.config.result_cache.exit_codes_to_ignore
-        self._max_size_to_cache = parse_user_value(
-            mcs.config.result_cache.max_file_size,
-            parser=parse_size,
-        )
+
+        if mcs.config.result_cache.exit_codes_to_ignore is None:
+            self._exit_codes_to_ignore = []
+        else:
+            self._exit_codes_to_ignore = mcs.config.result_cache.exit_codes_to_ignore
+
+        self._max_size_to_cache = parse_size(mcs.config.result_cache.max_file_size)
 
     async def scan_file(
         self,
@@ -83,7 +89,8 @@ class Scanner:
         also cache the result.
 
         If the file already has an entry in the result cache, return this value without
-        downloading the file again.
+        downloading the file again (unless we purposefully did not cache the file's
+        content to save up on memory).
 
         Args:
             media_path: The `server_name/media_id` path for the media.
@@ -104,38 +111,100 @@ class Scanner:
         cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
 
         # Return the cached result if there's one.
-        if cache_key in self._result_cache:
-            cache_entry = self._result_cache[cache_key]
+        cache_entry = self._result_cache.get(cache_key)
+        if cache_entry is not None:
             logger.info("Returning cached result %s", cache_entry.result)
 
             if cache_entry.result is False:
-                # If we defined additional info when caching the error, feed that into
-                # the new error.
-                if cache_entry.info is not None:
-                    raise FileDirtyError(info=cache_entry.info)
-                else:
-                    raise FileDirtyError()
-            else:
-                if cache_entry.media is not None:
-                    return cache_entry.media
+                # Feed the additional info we might have added when caching the error,
+                # into the new error.
+                raise FileDirtyError(info=cache_entry.info)
 
-                # If we don't have the media cached
+            if cache_entry.media is not None:
+                return cache_entry.media
+
+            # If we don't have the media cached
+            logger.info(
+                "Got a positive result from cache without a media, downloading file",
+            )
+
+            return await self._file_downloader.download_file(
+                media_path=media_path,
+                thumbnail_params=thumbnail_params,
+            )
+
+        # Download and scan the file.
+        try:
+            media, cacheable = await self._download_and_scan(
+                media_path, metadata, thumbnail_params
+            )
+        except FileDirtyError as e:
+            if e.cacheable:
+                logger.info("Caching scan failure")
+
+                # If the test fails, don't store the media to save memory.
+                self._result_cache[cache_key] = CacheEntry(
+                    result=False,
+                    media=None,
+                    info=e.info,
+                )
+
+            raise
+
+        # Update the cache if the result should be cached.
+        if cacheable:
+            logger.info("Caching scan success")
+
+            cached_media: Optional[MediaDescription] = media
+
+            if (
+                self._max_size_to_cache is not None
+                and len(media.content) > self._max_size_to_cache
+            ):
+
+                # Don't cache the file's content if it exceeds the maximum allowed file
+                # size, to minimise memory usage.
                 logger.info(
-                    "Got a positive result from cache without a media, downloading file",
+                    "File content has size %s, which is more than %s, not caching content",
+                    format_size(len(media.content)),
+                    format_size(self._max_size_to_cache),
                 )
 
-                return await self._file_downloader.download_file(
-                    media_path=media_path,
-                    thumbnail_params=thumbnail_params,
-                )
+                cached_media = None
 
+            self._result_cache[cache_key] = CacheEntry(
+                result=True,
+                media=cached_media,
+            )
+
+        return media
+
+    async def _download_and_scan(
+        self,
+        media_path: str,
+        metadata: Optional[JsonDict] = None,
+        thumbnail_params: Optional[Dict[str, List[str]]] = None,
+    ) -> Tuple[MediaDescription, bool]:
+        """Downloads and scans the given file.
+
+        Args:
+            media_path: The `server_name/media_id` path for the media.
+            metadata: The metadata attached to the file (e.g. decryption key), or None if
+                the file isn't encrypted.
+            thumbnail_params: If present, then we want to request and scan a thumbnail
+                generated with the provided parameters instead of the full media.
+
+        Returns:
+            A description of the media.
+
+        Raises:
+            ContentScannerRestError if the file could not be downloaded.
+            FileDirtyError if the result of the scan said that the file is dirty, or if
+                the media path is malformed.
+        """
         # Check if the media path is valid and only contains one slash (otherwise we'll
         # have issues parsing it further down the line).
         if media_path.count("/") != 1:
-            self._result_cache[cache_key] = CacheEntry(
-                result=False,
-                info="Malformed media ID",
-            )
             raise FileDirtyError("Malformed media ID")
 
         # Download the file, and decrypt it if necessary.
@@ -150,55 +219,19 @@ class Scanner:
             media_content = self._decrypt_file(media_content, metadata)
 
         # Write the file to disk.
-        try:
-            file_path = self._write_file_to_disk(media_path, media_content)
-        except FileDirtyError as e:
-            # A FileDirtyError will be raised if the media path is built in a way that
-            # can lead to writing outside of the configured directory.
-            self._result_cache[cache_key] = CacheEntry(
-                result=False,
-                info=e.info,
-            )
-            raise
+        file_path = self._write_file_to_disk(media_path, media_content)
 
         # Scan the file and see if the result is positive or negative.
         exit_code = self._run_scan(file_path)
         result = exit_code == 0
 
         # If the exit code isn't part of the ones we should ignore, cache the result.
-        if (
-            self._exit_codes_to_ignore is None
-            or exit_code not in self._exit_codes_to_ignore
-        ):
-            logger.info("Caching result %s", result)
-
-            cached_media = media if result is True else None
-
-            if (
-                self._max_size_to_cache is not None
-                and len(media.content) > self._max_size_to_cache
-            ):
-                # Don't cache the file's content if it exceeds the maximum allowed file
-                # size, to minimise memory usage.
-                logger.info(
-                    "File content has size %s, which is more than %s, not caching content",
-                    format_size(len(media.content)),
-                    format_size(self._max_size_to_cache),
-                )
-
-                cached_media = None
-
-            # Only cache the media if the scan is successful, because this means we might
-            # need to show it to the user again. If the test fails, don't store it to save
-            # memory.
-            self._result_cache[cache_key] = CacheEntry(
-                result=result,
-                media=cached_media,
-            )
-        else:
+        cacheable = True
+        if exit_code in self._exit_codes_to_ignore:
             logger.info(
                 "Scan returned exit code %d which must not be cached", exit_code
             )
+            cacheable = False
 
         # Delete the file now that we've scanned it.
         logger.info("Scan has finished, removing file")
@@ -208,9 +241,9 @@ class Scanner:
 
         # Raise an error if the result isn't clean.
         if result is False:
-            raise FileDirtyError()
+            raise FileDirtyError(cacheable=cacheable)
 
-        return media
+        return media, cacheable
 
     def _get_cache_key_for_file(
         self,
@@ -234,11 +267,12 @@ class Scanner:
                 is passed, this will be an empty dict. If the media being requested is not
                 a thumbnail, this will be None.
         """
-        raw_metadata = json.dumps(metadata)
-        raw_params = json.dumps(thumbnail_params)
-        base_string = media_path + raw_metadata + raw_params
+        raw_metadata = encode_canonical_json(metadata)
+        raw_params = encode_canonical_json(thumbnail_params)
+        media_path_bytes = media_path.encode("utf8")
+        base_bytes = media_path_bytes + b"\0" + raw_metadata + b"\0" + raw_params
 
-        return hashlib.sha256(base_string.encode("ascii")).hexdigest()
+        return hashlib.sha256(base_bytes).hexdigest()
 
     def _decrypt_file(self, body: bytes, metadata: JsonDict) -> bytes:
         """Extract decryption information from the file's metadata and decrypt it.
@@ -290,7 +324,7 @@ class Scanner:
         full_path = self._store_directory.joinpath(media_path).resolve()
         try:
             # Check if the full path is a sub-path to the store's path, to make sure
-            # there isn't any '..' etc in the full path, which would cause us to try
+            # there isn't any '..' etc. in the full path, which would cause us to try
             # writing outside the store's directory.
             full_path.relative_to(self._store_directory)
         except ValueError:

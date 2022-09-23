@@ -14,6 +14,7 @@
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import attr
+import humanfriendly
 from jsonschema import ValidationError, validate
 
 from matrix_content_scanner.utils.errors import ConfigError
@@ -132,7 +133,33 @@ class MatrixContentScannerConfig:
         self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
 
 
-def parse_user_value(
+def parse_duration(duration: Optional[Union[str, float]]) -> Optional[float]:
+    """Parse a time duration into a float representing an amount of second. If the given
+    value is None, or already a float, returns it as is.
+
+    Args:
+        duration: The duration to parse.
+
+    Returns:
+        The number of seconds in the given duration.
+    """
+    return _parse_user_value(duration, humanfriendly.parse_timespan)
+
+
+def parse_size(size: Optional[Union[str, float]]) -> Optional[float]:
+    """Parse a file size into a float representing the number of bytes for that size. If
+    the given value is None, or already a float, returns it as is.
+
+    Args:
+        size: The size to parse.
+
+    Returns:
+        The number of bytes represented by the given size.
+    """
+    return _parse_user_value(size, humanfriendly.parse_size)
+
+
+def _parse_user_value(
     v: Optional[Union[str, float]], parser: Callable[[str], float]
 ) -> Optional[float]:
     """Parse a given user-defined string value (such as durations or sizes) into a float.
@@ -152,6 +179,6 @@ def parse_user_value(
         return None
 
     if isinstance(v, float):
-        return float(v)
+        return v
 
     return parser(v)
