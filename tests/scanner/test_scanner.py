@@ -13,7 +13,7 @@
 #  limitations under the License.
 import copy
 from typing import Dict, List, Optional
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock
 
 import aiounittest
 from twisted.web.http_headers import Headers
@@ -175,7 +175,7 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         self.scanner._result_cache[cache_key] = CacheEntry(
             result=entry.result,
             media=entry.media,
-            media_hash=b'BAD_HASH',
+            media_hash=b"BAD_HASH",
             info=entry.info,
         )
 

@@ -147,7 +147,7 @@ class Scanner:
             # Compare the media's hash to ensure the server hasn't changed the file since
             # the last scan. If it has changed, shout about it in the logs, discard the
             # cache entry and scan it again.
-            media_hash = hashlib.sha256(media.content)
+            media_hash = hashlib.sha256(media.content).digest()
             if media_hash == cache_entry.media_hash:
                 return media
 
@@ -199,7 +199,7 @@ class Scanner:
 
             # Hash the media, that way if we need to re-download the file we can make sure
             # it's the right one.
-            media_hash = hashlib.sha256(media.content)
+            media_hash = hashlib.sha256(media.content).digest()
 
             self._result_cache[cache_key] = CacheEntry(
                 result=True,
