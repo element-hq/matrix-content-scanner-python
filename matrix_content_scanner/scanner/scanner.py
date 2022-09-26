@@ -46,6 +46,10 @@ class CacheEntry:
     # it if the scan succeeded and the file's size does not exceed the configured limit,
     # otherwise it's None.
     media: Optional[MediaDescription] = None
+    # Hash of the media content, so we can make sure no malicious servers changed the file
+    # since we've scanned it (e.g. if we need to re-download it because the file was too
+    # big). None if the scan failed.
+    media_hash: Optional[bytes] = None
     # Info to include in the FileDirtyError if the scan failed.
     info: Optional[str] = None
 
@@ -110,10 +114,17 @@ class Scanner:
         # Compute the cache key for the media.
         cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
 
+        # The content of the file, if we have already scanned it. We might re-download
+        # a file that was too large to cache, and then realise we need to scan it again
+        # (because e.g. its hash has changed), in which case we set this to the file's
+        # MediaDescription and give it to _download_and_scan to avoid it being scanned
+        # again.
+        media: Optional[MediaDescription] = None
+
         # Return the cached result if there's one.
         cache_entry = self._result_cache.get(cache_key)
         if cache_entry is not None:
-            logger.info("Returning cached result %s", cache_entry.result)
+            logger.info("Found a cached result %s", cache_entry.result)
 
             if cache_entry.result is False:
                 # Feed the additional info we might have added when caching the error,
@@ -128,15 +139,29 @@ class Scanner:
                 "Got a positive result from cache without a media, downloading file",
             )
 
-            return await self._file_downloader.download_file(
+            media = await self._file_downloader.download_file(
                 media_path=media_path,
                 thumbnail_params=thumbnail_params,
             )
 
+            # Compare the media's hash to ensure the server hasn't changed the file since
+            # the last scan. If it has changed, shout about it in the logs, discard the
+            # cache entry and scan it again.
+            media_hash = hashlib.sha256(media.content)
+            if media_hash == cache_entry.media_hash:
+                return media
+
+            logger.warning(
+                "Media has changed since last scan, discarding cached result and"
+                " scanning again"
+            )
+
+            del self._result_cache[cache_key]
+
         # Download and scan the file.
         try:
             media, cacheable = await self._download_and_scan(
-                media_path, metadata, thumbnail_params
+                media_path, metadata, thumbnail_params, media
             )
         except FileDirtyError as e:
             if e.cacheable:
@@ -172,9 +197,14 @@ class Scanner:
 
                 cached_media = None
 
+            # Hash the media, that way if we need to re-download the file we can make sure
+            # it's the right one.
+            media_hash = hashlib.sha256(media.content)
+
             self._result_cache[cache_key] = CacheEntry(
                 result=True,
                 media=cached_media,
+                media_hash=media_hash,
             )
 
         return media
@@ -184,6 +214,7 @@ class Scanner:
         media_path: str,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional[Dict[str, List[str]]] = None,
+        media: Optional[MediaDescription] = None,
     ) -> Tuple[MediaDescription, bool]:
         """Downloads and scans the given file.
 
@@ -193,6 +224,9 @@ class Scanner:
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
+            media: The already downloaded media. If provided, the download step is
+                skipped. Usually provided if we've re-downloaded a file with a cached
+                result, but the file changed since the initial scan.
 
         Returns:
             A description of the media.
@@ -207,11 +241,12 @@ class Scanner:
         if media_path.count("/") != 1:
             raise FileDirtyError("Malformed media ID")
 
-        # Download the file, and decrypt it if necessary.
-        media = await self._file_downloader.download_file(
-            media_path=media_path,
-            thumbnail_params=thumbnail_params,
-        )
+        # Download the file and decrypt it if necessary.
+        if media is None:
+            media = await self._file_downloader.download_file(
+                media_path=media_path,
+                thumbnail_params=thumbnail_params,
+            )
 
         media_content = media.content
         if metadata is not None:

@@ -13,11 +13,12 @@
 #  limitations under the License.
 import copy
 from typing import Dict, List, Optional
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 import aiounittest
 from twisted.web.http_headers import Headers
 
+from matrix_content_scanner.scanner.scanner import CacheEntry
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
 from matrix_content_scanner.utils.types import MediaDescription
@@ -143,6 +144,48 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         media = await self.scanner.scan_file(MEDIA_PATH)
         self.assertEqual(self.downloader_mock.call_count, 2)
         self.assertEqual(media.content, SMALL_PNG)
+
+    async def test_cache_max_size_mismatching_hash(self) -> None:
+        """Tests that we re-scan big files if the hash we have cached for them does not
+        match the hash of the newly downloaded content.
+        """
+        # Mock the _run_scan command so we can keep track of its call count.
+        mock_runner = Mock(return_value=0)
+        self.scanner._run_scan = mock_runner  # type: ignore[assignment]
+
+        # Calculate the cache key for this file so we can look it up later.
+        cache_key = self.scanner._get_cache_key_for_file(MEDIA_PATH, None, None)
+
+        # Set the maximum file size to be just under the size of the file.
+        self.scanner._max_size_to_cache = len(SMALL_PNG) - 1
+
+        # Make sure the cache is empty.
+        self.assertEqual(len(self.scanner._result_cache), 0)
+
+        # Scan the file a first time, and check that the file has been scanned.
+        await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(self.downloader_mock.call_count, 1)
+        mock_runner.assert_called_once()
+
+        # Test that the file has been cached.
+        self.assertIn(cache_key, self.scanner._result_cache)
+
+        # Change the hash of the cache entry to force it to be scanned again.
+        entry: CacheEntry = self.scanner._result_cache[cache_key]
+        self.scanner._result_cache[cache_key] = CacheEntry(
+            result=entry.result,
+            media=entry.media,
+            media_hash=b'BAD_HASH',
+            info=entry.info,
+        )
+
+        # Run the scanner again and check that the cache entry for the file has been
+        # discarded (i.e. the scan is run again).
+        await self.scanner.scan_file(MEDIA_PATH)
+        self.assertEqual(mock_runner.call_count, 2)
+
+        # Also check that the file has only been re-downloaded once.
+        self.assertEqual(self.downloader_mock.call_count, 2)
 
     async def test_different_encryption_key(self) -> None:
         """Tests that if some of the file's metadata changed, we don't match against the
