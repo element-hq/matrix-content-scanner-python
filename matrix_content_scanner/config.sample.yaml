@@ -1,3 +1,18 @@
+# Configuration file template for the Matrix Content Scanner.
+#
+# Supported time units:
+#  * ms, millisecond, milliseconds
+#  * s, sec, secs, second, seconds
+#  * m, min, mins, minute, minutes
+#  * h, hour, hours
+#  * d, day, days
+#  * w, week, weeks
+#  * y, year, years
+#
+# Examples of supported size units can be found here: https://humanfriendly.readthedocs.io/en/latest/api.html#humanfriendly.parse_size
+# Size units use a decimal base, which means that 1KB is parsed as 1000 bytes. Using
+# binary units is possible, however, e.g. 1KiB is parsed as 1024 bytes.
+
 # Configuration for hosting the HTTP(S) API.
 web:
     host: 127.0.0.1
@@ -43,7 +58,6 @@ result_cache:
     # Optional, defaults to 1024.
     max_size: 2048
     # The maximum amount of time an entry will stay in the cache before being evicted.
-    # The list of supported time units can be found here: https://humanfriendly.readthedocs.io/en/latest/api.html#humanfriendly.parse_timespan
     # Optional, defaults to 1 week.
     ttl: "1d"
     # The maximum cachable file size. If a file is bigger than this size, a copy of it
