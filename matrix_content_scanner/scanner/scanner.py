@@ -25,7 +25,6 @@ from humanfriendly import format_size
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 
-from matrix_content_scanner.config import parse_duration, parse_size
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict, MediaDescription
@@ -42,14 +41,17 @@ class CacheEntry:
 
     # The result of the scan: True if the scan passed, False otherwise.
     result: bool
+
     # The media that was scanned, so we can return it in future requests. We only cache
     # it if the scan succeeded and the file's size does not exceed the configured limit,
     # otherwise it's None.
     media: Optional[MediaDescription] = None
+
     # Hash of the media content, so we can make sure no malicious servers changed the file
     # since we've scanned it (e.g. if we need to re-download it because the file was too
     # big). None if the scan failed.
-    media_hash: Optional[bytes] = None
+    media_hash: Optional[str] = None
+
     # Info to include in the FileDirtyError if the scan failed.
     info: Optional[str] = None
 
@@ -64,14 +66,9 @@ class Scanner:
         )
 
         # Result cache settings.
-        cache_ttl = parse_duration(mcs.config.result_cache.ttl)
-        # We know cache_ttl can't be None because the relevant configuration setting can't
-        # be None.
-        assert cache_ttl is not None
-
         self._result_cache: TTLCache[str, CacheEntry] = TTLCache(
             maxsize=mcs.config.result_cache.max_size,
-            ttl=cache_ttl,
+            ttl=mcs.config.result_cache.ttl,
         )
 
         if mcs.config.result_cache.exit_codes_to_ignore is None:
@@ -79,7 +76,7 @@ class Scanner:
         else:
             self._exit_codes_to_ignore = mcs.config.result_cache.exit_codes_to_ignore
 
-        self._max_size_to_cache = parse_size(mcs.config.result_cache.max_file_size)
+        self._max_size_to_cache = mcs.config.result_cache.max_file_size
 
     async def scan_file(
         self,
@@ -114,11 +111,7 @@ class Scanner:
         # Compute the cache key for the media.
         cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
 
-        # The content of the file, if we have already scanned it. We might re-download
-        # a file that was too large to cache, and then realise we need to scan it again
-        # (because e.g. its hash has changed), in which case we set this to the file's
-        # MediaDescription and give it to _download_and_scan to avoid it being scanned
-        # again.
+        # The media to scan.
         media: Optional[MediaDescription] = None
 
         # Return the cached result if there's one.
@@ -147,22 +140,39 @@ class Scanner:
             # Compare the media's hash to ensure the server hasn't changed the file since
             # the last scan. If it has changed, shout about it in the logs, discard the
             # cache entry and scan it again.
-            media_hash = hashlib.sha256(media.content).digest()
+            media_hash = hashlib.sha256(media.content).hexdigest()
             if media_hash == cache_entry.media_hash:
                 return media
 
             logger.warning(
-                "Media has changed since last scan, discarding cached result and"
-                " scanning again"
+                "Media has changed since last scan (cached hash: %s, new hash: %s),"
+                " discarding cached result and scanning again",
+                cache_entry.media_hash,
+                media_hash,
             )
 
             del self._result_cache[cache_key]
 
+        # Check if the media path is valid and only contains one slash (otherwise we'll
+        # have issues parsing it further down the line).
+        if media_path.count("/") != 1:
+            info = "Malformed media ID"
+            self._result_cache[cache_key] = CacheEntry(
+                result=False,
+                info=info,
+            )
+            raise FileDirtyError(info)
+
+        # Download the file if we don't already have it.
+        if media is None:
+            media = await self._file_downloader.download_file(
+                media_path=media_path,
+                thumbnail_params=thumbnail_params,
+            )
+
         # Download and scan the file.
         try:
-            media, cacheable = await self._download_and_scan(
-                media_path, metadata, thumbnail_params, media
-            )
+            media, cacheable = await self._scan_media(media, media_path, metadata)
         except FileDirtyError as e:
             if e.cacheable:
                 logger.info("Caching scan failure")
@@ -198,8 +208,8 @@ class Scanner:
                 cached_media = None
 
             # Hash the media, that way if we need to re-download the file we can make sure
-            # it's the right one.
-            media_hash = hashlib.sha256(media.content).digest()
+            # it's the right one. We get a hex digest in case we want to print it later.
+            media_hash = hashlib.sha256(media.content).hexdigest()
 
             self._result_cache[cache_key] = CacheEntry(
                 result=True,
@@ -209,45 +219,32 @@ class Scanner:
 
         return media
 
-    async def _download_and_scan(
+    async def _scan_media(
         self,
+        media: MediaDescription,
         media_path: str,
         metadata: Optional[JsonDict] = None,
-        thumbnail_params: Optional[Dict[str, List[str]]] = None,
-        media: Optional[MediaDescription] = None,
     ) -> Tuple[MediaDescription, bool]:
-        """Downloads and scans the given file.
+        """Scans the given media.
 
         Args:
-            media_path: The `server_name/media_id` path for the media.
-            metadata: The metadata attached to the file (e.g. decryption key), or None if
-                the file isn't encrypted.
-            thumbnail_params: If present, then we want to request and scan a thumbnail
-                generated with the provided parameters instead of the full media.
             media: The already downloaded media. If provided, the download step is
                 skipped. Usually provided if we've re-downloaded a file with a cached
                 result, but the file changed since the initial scan.
+            media_path: The `server_name/media_id` path for the media.
+            metadata: The metadata attached to the file (e.g. decryption key), or None if
+                the file isn't encrypted.
 
         Returns:
-            A description of the media.
+            A description of the media, as well as a boolean indicating whether the
+            successful scan result should be cached or not.
 
         Raises:
-            ContentScannerRestError if the file could not be downloaded.
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
-        # Check if the media path is valid and only contains one slash (otherwise we'll
-        # have issues parsing it further down the line).
-        if media_path.count("/") != 1:
-            raise FileDirtyError("Malformed media ID")
 
-        # Download the file and decrypt it if necessary.
-        if media is None:
-            media = await self._file_downloader.download_file(
-                media_path=media_path,
-                thumbnail_params=thumbnail_params,
-            )
-
+        # Decrypt the content if necessary.
         media_content = media.content
         if metadata is not None:
             # If the file is encrypted, we need to decrypt it before we can scan it.
@@ -302,12 +299,14 @@ class Scanner:
                 is passed, this will be an empty dict. If the media being requested is not
                 a thumbnail, this will be None.
         """
-        raw_metadata = encode_canonical_json(metadata)
-        raw_params = encode_canonical_json(thumbnail_params)
-        media_path_bytes = media_path.encode("utf8")
-        base_bytes = media_path_bytes + b"\0" + raw_metadata + b"\0" + raw_params
+        hash = hashlib.sha256()
+        hash.update(media_path.encode("utf8"))
+        hash.update(b"\0")
+        hash.update(encode_canonical_json(metadata))
+        hash.update(b"\0")
+        hash.update(encode_canonical_json(thumbnail_params))
 
-        return hashlib.sha256(base_bytes).hexdigest()
+        return hash.hexdigest()
 
     def _decrypt_file(self, body: bytes, metadata: JsonDict) -> bytes:
         """Extract decryption information from the file's metadata and decrypt it.

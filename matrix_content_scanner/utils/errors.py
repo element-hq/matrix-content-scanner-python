@@ -34,6 +34,12 @@ class FileDirtyError(ContentScannerRestError):
         info: Optional[str] = "***VIRUS DETECTED***",
         cacheable: bool = True,
     ) -> None:
+        """
+        Args:
+            info: The info string to serve to the client.
+            cacheable: Whether raising this error should be recorded as a scan failure in
+                the scanner's result cache.
+        """
         super(FileDirtyError, self).__init__(
             http_status=403,
             reason=ErrCode.NOT_CLEAN,

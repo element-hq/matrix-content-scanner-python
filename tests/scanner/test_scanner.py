@@ -175,7 +175,7 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         self.scanner._result_cache[cache_key] = CacheEntry(
             result=entry.result,
             media=entry.media,
-            media_hash=b"BAD_HASH",
+            media_hash="BAD_HASH",
             info=entry.info,
         )
 
