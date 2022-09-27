@@ -24,6 +24,7 @@ class MediaDescription:
     content_type: str
     content: bytes
     response_headers: Headers
+    cacheable: bool = True
 
 
 # A JSON object/dictionary.

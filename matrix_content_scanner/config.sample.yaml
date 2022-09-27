@@ -1,3 +1,18 @@
+# Configuration file template for the Matrix Content Scanner.
+#
+# Supported time units:
+#  * ms, millisecond, milliseconds
+#  * s, sec, secs, second, seconds
+#  * m, min, mins, minute, minutes
+#  * h, hour, hours
+#  * d, day, days
+#  * w, week, weeks
+#  * y, year, years
+# If no unit is given, "seconds" are implied.
+#
+# Examples of supported size units can be found here: https://humanfriendly.readthedocs.io/en/latest/api.html#humanfriendly.parse_size
+# Size units use a decimal base, so 1KB means 1000 bytes, while 1KiB means 1024 bytes.
+
 # Configuration for hosting the HTTP(S) API.
 web:
     host: 127.0.0.1
@@ -9,22 +24,56 @@ scan:
     # downloaded file as its only argument, e.g. "./example.sh /temp/foo.bar/my_file".
     # Required.
     script: "./example.sh"
+
     # Directory in which to download files for scanning. Each file downloaded is removed
     # after the scan has completed.
     # Required.
     temp_directory: "/tmp"
-    # List of exit codes from the scanning script that shouldn't cause the result of the
-    # scan to be cached in memory for future requests.
-    # Optional, defaults to an empty list (i.e. results are cached regardless of the
-    # script's exit code).
-    do_not_cache_exit_codes: [1, 2]
+
     # Command to run to remove files from disk once they have been scanned.
     # Optional, defaults to "rm".
     removal_command: "srm"
+
     # List of allowed MIME types. If a file has a MIME type that's not in this list, its
     # scan is considered failed.
     # Optional, defaults to allowing all MIME types.
     allowed_mimetypes: ["image/jpeg"]
+
+# Configuration of scan result caching.
+#
+# Results are stored in a cache to avoid having to download and scan a file twice. There
+# is a unique entry in this cache for each set of media path (i.e. the
+# "server_name/media_id" identifier for the media), thumbnailing parameters and
+# encryption metadata. This means that, for example, the result for the scan of the media
+# "example.com/abc" and the result for the scan of the  *thumbnail* of "example.com/abc"
+# will be stored in two separate entries.
+#
+# Each entry in the cache includes the result of the scan as well as a copy of the media
+# that was scanned. If the media fails the scan, however, or is larger than the configured
+# maximum size (if set), no copy of the media is stored in the result cache.
+result_cache:
+    # List of exit codes from the scanning script that shouldn't cause the result of the
+    # scan to be cached for future requests.
+    # Optional, defaults to an empty list (i.e. results are cached regardless of the
+    # script's exit code).
+    exit_codes_to_ignore: [1, 2]
+
+    # Maximum number of results that can be stored in the cache. If more files are
+    # scanned before existing items reach their TTL, the least-recently accessed will be
+    # evicted.
+    # Optional, defaults to 1024.
+    max_size: 2048
+
+    # The maximum amount of time an entry will stay in the cache before being evicted.
+    # Optional, defaults to 1 week.
+    ttl: "1d"
+
+    # The maximum cachable file size. If a file is bigger than this size, a copy of it
+    # will be not be cached even if the scan succeeds. If the file is requested again, it
+    # is downloaded again from the homeserver, but is not written to disk or scanned.
+    # Optional, defaults to no maximum size.
+    max_file_size: "100MB"
+
 
 # Configuration for downloading files.
 # When downloading files directly from their respective homeservers (which is the default
@@ -39,9 +88,11 @@ download:
     # to use.
     # Optional, defaults to downloading files directly from their respective homeservers.
     base_homeserver_url: "https://matrix.org"
+
     # HTTP(S) proxy to use when sending requests.
     # Optional, defaults to no proxy.
     proxy: "http://10.0.0.1:3128"
+
     # Headers to send in outgoing requests.
     # Optional, defaults to no additional headers.
     additional_headers:
@@ -52,6 +103,7 @@ crypto:
     # The path to the Olm pickle file.
     # Required.
     pickle_path: "./pickle"
+
     # The key to the pickle.
     # Required.
     pickle_key: "this_is_a_secret"

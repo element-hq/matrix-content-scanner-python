@@ -156,6 +156,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
             await self.downloader.download_file(MEDIA_PATH)
 
         self.assertEqual(cm.exception.http_status, 502)
+        assert cm.exception.info is not None
         self.assertTrue("Content-Type" in cm.exception.info)
 
     async def test_no_content_type(self) -> None:
@@ -168,6 +169,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
             await self.downloader.download_file(MEDIA_PATH)
 
         self.assertEqual(cm.exception.http_status, 502)
+        assert cm.exception.info is not None
         self.assertTrue("Content-Type" in cm.exception.info)
 
 
