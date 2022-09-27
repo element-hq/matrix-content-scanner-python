@@ -79,6 +79,9 @@ class Scanner:
 
         self._max_size_to_cache = mcs.config.result_cache.max_file_size
 
+        # List of MIME types we should allow. If None, we don't fail files based on their
+        # MIME types (besides comparing it with the Content-Type header from the server
+        # for unencrypted files).
         self._allowed_mimetypes = mcs.config.scan.allowed_mimetypes
 
     async def scan_file(
