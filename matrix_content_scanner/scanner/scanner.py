@@ -260,7 +260,7 @@ class Scanner:
         # encrypted, if it matches the Content-Type header the homeserver sent us.
         self._check_mimetype(
             media_content=media_content,
-            content_type_header=media.content_type,
+            claimed_mimetype=media.content_type,
             encrypted=metadata is not None,
         )
 
@@ -408,10 +408,10 @@ class Scanner:
     def _check_mimetype(
         self,
         media_content: bytes,
-        content_type_header: str,
+        claimed_mimetype: str,
         encrypted: bool,
     ) -> None:
-        """Reads the MIME type of the provided bytes, and checks that:
+        """Detects the MIME type of the provided bytes, and checks that:
         * it matches with the Content-Type header that was received when downloading this
             file (if the media isn't encrypted, since otherwise the Content-Type header
             is always 'application/octet-stream')
@@ -420,24 +420,24 @@ class Scanner:
         Args:
             media_content: The file's content. If the file is encrypted, this is its
                 decrypted content.
-            content_type_header: The value of the Content-Type header received when
+            claimed_mimetype: The value of the Content-Type header received when
                 downloading the file.
             encrypted: Whether the file was encrypted (in which case we don't want to
                 check that its MIME type matches with the Content-Type header).
         Raises:
             FileDirtyError if one of the checks fail.
         """
-        mimetype = magic.mimetype(media_content)
-        logger.info("MIME type for file is %s", mimetype)
+        detected_mimetype = magic.mimetype(media_content)
+        logger.debug("Detected MIME type for file is %s", detected_mimetype)
 
         # Check if the MIME type is matching the one that's expected, but only if the file
         # is not encrypted (because otherwise we'll always have 'application/octet-stream'
         # in the Content-Type header regardless of the actual MIME type of the file).
-        if encrypted is False and mimetype != content_type_header:
+        if encrypted is False and detected_mimetype != claimed_mimetype:
             logger.error(
                 "Mismatching MIME type (%s) and Content-Type header (%s)",
-                mimetype,
-                content_type_header,
+                detected_mimetype,
+                claimed_mimetype,
             )
             raise FileDirtyError("File type not supported")
 
@@ -445,10 +445,10 @@ class Scanner:
         # detected for this file is in it.
         if (
             self._allowed_mimetypes is not None
-            and mimetype not in self._allowed_mimetypes
+            and detected_mimetype not in self._allowed_mimetypes
         ):
             logger.error(
                 "MIME type for file is forbidden: %s",
-                mimetype,
+                detected_mimetype,
             )
             raise FileDirtyError("File type not supported")
