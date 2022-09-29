@@ -39,12 +39,13 @@ _encrypted_file_metadata_schema = {
                 },
                 "key": {
                     "type": "object",
-                    "required": ["alg", "kty", "k", "key_ops"],
+                    "required": ["alg", "kty", "k", "key_ops", "ext"],
                     "properties": {
                         "alg": {"const": "A256CTR"},
                         "kty": {"const": "oct"},
                         "k": {"type": "string"},
                         "key_ops": {"type": "array", "items": {"type": "string"}},
+                        "ext": {"const": True},
                     },
                 },
             },

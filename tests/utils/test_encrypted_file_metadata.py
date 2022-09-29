@@ -57,6 +57,20 @@ class EncryptedMetadataValidationTestCase(unittest.TestCase):
         del self.metadata["file"]["key"]["k"]
         self._test_fails_validation()
 
+    def test_no_ext(self) -> None:
+        """Tests that the metadata validation fails if there isn't a `file.key.ext`
+        property.
+        """
+        del self.metadata["file"]["key"]["ext"]
+        self._test_fails_validation()
+
+    def test_ext_not_true(self) -> None:
+        """Tests that the metadata validation fails if the `file.key.ext` property has an
+        invalid value.
+        """
+        self.metadata["file"]["key"]["ext"] = False
+        self._test_fails_validation()
+
     def test_no_iv(self) -> None:
         """Tests that the metadata validation fails if there isn't a `file.iv` property."""
         del self.metadata["file"]["iv"]
