@@ -24,6 +24,7 @@ from yaml.scanner import ScannerError
 
 from matrix_content_scanner import logutils
 from matrix_content_scanner.config import MatrixContentScannerConfig
+from matrix_content_scanner.crypto import CryptoHandler
 from matrix_content_scanner.httpserver import HTTPServer
 from matrix_content_scanner.scanner.file_downloader import FileDownloader
 from matrix_content_scanner.scanner.scanner import Scanner
@@ -57,6 +58,10 @@ class MatrixContentScanner:
     @cached_property
     def scanner(self) -> Scanner:
         return Scanner(self)
+
+    @cached_property
+    def crypto_handler(self) -> CryptoHandler:
+        return CryptoHandler(self)
 
     def start(self) -> None:
         """Start the HTTP server and start the reactor."""
