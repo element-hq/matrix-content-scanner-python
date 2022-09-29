@@ -40,6 +40,13 @@ class EncryptedMetadataValidationTestCase(unittest.TestCase):
         self.metadata["file"]["key"]["key_ops"] = ["decrypt"]
         self._test_fails_validation()
 
+    def test_ops_extra_values(self) -> None:
+        """tests that the metadata validation does not fail if there are extra values in
+        key_ops.
+        """
+        self.metadata["file"]["key"]["key_ops"].append("foo")
+        validate_encrypted_file_metadata(self.metadata)
+
     def test_no_file(self) -> None:
         """Tests that the metadata validation fails if there isn't a `file` property."""
         self.metadata = {"foo": "bar"}
@@ -64,11 +71,25 @@ class EncryptedMetadataValidationTestCase(unittest.TestCase):
         del self.metadata["file"]["key"]["ext"]
         self._test_fails_validation()
 
-    def test_ext_not_true(self) -> None:
+    def test_bad_ext(self) -> None:
         """Tests that the metadata validation fails if the `file.key.ext` property has an
         invalid value.
         """
         self.metadata["file"]["key"]["ext"] = False
+        self._test_fails_validation()
+
+    def test_bad_alg(self) -> None:
+        """Tests that the metadata validation fails if the `file.key.alg` property has an
+        invalid value.
+        """
+        self.metadata["file"]["key"]["alg"] = "bad"
+        self._test_fails_validation()
+
+    def test_bad_kty(self) -> None:
+        """Tests that the metadata validation fails if the `file.key.kty` property has an
+        invalid value.
+        """
+        self.metadata["file"]["key"]["kty"] = "bad"
         self._test_fails_validation()
 
     def test_no_iv(self) -> None:
