@@ -48,12 +48,12 @@ class CryptoHandler:
             logger.info("Loaded Olm pickle from %s", path)
         except FileNotFoundError:
             # If the pickle file doesn't exist, try creating it.
-            self._decryptor = PkDecryption()
-            pickle_bytes = self._decryptor.pickle(passphrase=key)
-
             logger.info(
                 "Olm pickle not found, generating one and saving it at %s", path
             )
+
+            self._decryptor = PkDecryption()
+            pickle_bytes = self._decryptor.pickle(passphrase=key)
 
             with open(path, "w+") as fp:
                 fp.write(pickle_bytes.decode("ascii"))
