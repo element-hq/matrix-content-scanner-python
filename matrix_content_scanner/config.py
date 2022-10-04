@@ -62,29 +62,6 @@ def _parse_size(size: Optional[Union[str, float]]) -> Optional[float]:
         raise ConfigError(e)
 
 
-def _check_file_path(raw_path: str) -> None:
-    """Check if the file at the given path exists and is readable. If it's not, check if
-    the parent directory exists and is writeable.
-
-    Args:
-        raw_path: The path to check.
-
-    Raises:
-        ConfigError if the file does not exist and the parent directory cannot be written
-            into or does not exist.
-    """
-    path = Path(raw_path).resolve()
-
-    if os.access(path, os.R_OK):
-        return
-
-    if not os.access(path.parent, os.W_OK):
-        raise ConfigError(
-            "File %s does not exist and parent directory is not writeable or does not exist"
-            % raw_path
-        )
-
-
 # Schema to validate the raw configuration dictionary against.
 _config_schema = {
     "type": "object",
@@ -206,6 +183,3 @@ class MatrixContentScannerConfig:
         self.crypto = CryptoConfig(**(config_dict.get("crypto") or {}))
         self.download = DownloadConfig(**(config_dict.get("download") or {}))
         self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
-
-        # Check that we can read the pickle file, or create it if it doesn't exist.
-        _check_file_path(self.crypto.pickle_path)

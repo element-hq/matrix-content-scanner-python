@@ -24,13 +24,23 @@ pip install matrix-content-scanner
 Copy and edit the [sample configuration file](https://github.com/matrix-org/matrix-content-scanner-python/blob/main/config.sample.yaml).
 Each key is documented in this file.
 
-Then run the content scanner (from within your virtual environment if one was created):
+Before running the Matrix Content Scanner for the first time (if you are not [migrating
+from the legacy Matrix Content Scanner](#migrating-from-the-legacy-matrix-content-scanner)),
+run (from within your virtual environment if one was created):
+
+```commandline
+python -m matrix_content_scanner.mcs -c CONFIG_FILE --generate-secrets
+```
+
+Where `CONFIG_FILE` is the path to your configuration file.
+
+This will generate the cryptographic secrets required for the content scanner to run.
+
+Then run the content scanner:
 
 ```commandline
 python -m matrix_content_scanner.mcs -c CONFIG_FILE
 ```
-
-Where `CONFIG_FILE` is the path to your configuration file.
 
 ## API
 
@@ -56,9 +66,9 @@ deployment instructions) is the configuration format:
 * `acceptedMimeType` is renamed `scan.allowed_mimetypes`
 * `requestHeader` is renamed `download.additional_headers` and turned into a dictionary.
 
-Note that the format of the cryptographic pickle file and key are compatible between this
-project and the legacy Matrix Content Scanner. If no file exist at that path one will be
-created automatically.
+Note that the format of the cryptographic pickle file file and key are compatible between
+this project and the legacy Matrix Content Scanner. If no file exist at that path one will
+be created automatically.
 
 ## Development
 
