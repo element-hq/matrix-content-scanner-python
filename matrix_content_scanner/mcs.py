@@ -105,7 +105,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--generate-secrets",
-        action='store_true',
+        action="store_true",
         help="Generate secrets such as cryptographic key pairs needed for the content scanner to run.",
     )
 

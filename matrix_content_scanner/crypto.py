@@ -19,7 +19,7 @@ from olm.pk import PkDecryption, PkDecryptionError, PkMessage
 
 from matrix_content_scanner.config import MatrixContentScannerConfig
 from matrix_content_scanner.utils.constants import ErrCode
-from matrix_content_scanner.utils.errors import ContentScannerRestError, ConfigError
+from matrix_content_scanner.utils.errors import ConfigError, ContentScannerRestError
 from matrix_content_scanner.utils.types import JsonDict
 
 if TYPE_CHECKING:
