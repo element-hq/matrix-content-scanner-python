@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 
 from olm.pk import PkDecryption, PkDecryptionError, PkMessage
 
-from matrix_content_scanner.config import MatrixContentScannerConfig
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ConfigError, ContentScannerRestError
 from matrix_content_scanner.utils.types import JsonDict
@@ -40,59 +39,52 @@ class CryptoHandler:
         try:
             with open(path, "r") as fp:
                 pickle = fp.read()
+
+            # Create a PkDecryption object with the content and key.
+            try:
+                self._decryptor: PkDecryption = PkDecryption.from_pickle(
+                    pickle=pickle.encode("ascii"),
+                    passphrase=key,
+                )
+            except PkDecryptionError as e:
+                # If we failed to extract the key pair from the pickle file, it's likely
+                # because the key is incorrect, or there's an issue with the file's
+                # content.
+                raise ConfigError(
+                    "Configured value for crypto.pickle_key is incorrect or pickle file"
+                    " is corrupted (Olm error code: %s)" % e
+                )
+
+            logger.info("Loaded Olm key pair from pickle file %s", path)
+
         except OSError as e:
-            raise ConfigError(
-                "Failed to open the pickle file configured at crypto.pickle_path (%s): %s"
-                % (path, e)
+            if not isinstance(e, FileNotFoundError):
+                raise ConfigError(
+                    "Failed to read the pickle file at the location configured for"
+                    " crypto.pickle_path (%s): %s" % (path, e)
+                )
+
+            logger.info(
+                "Pickle file not found, generating a new Olm key pair and storing it in"
+                " pickle file %s",
+                path,
             )
 
-        # Create a PkDecryption object with the content and key.
-        try:
-            self._decryptor: PkDecryption = PkDecryption.from_pickle(
-                pickle=pickle.encode("ascii"),
-                passphrase=key,
-            )
-        except PkDecryptionError as e:
-            # If we failed to extract the key pair from the pickle file, it's likely
-            # because the key is incorrect, or there's an issue with the file's content.
-            raise ConfigError(
-                "Configured value for crypto.pickle_key is incorrect or pickle file is"
-                " corrupted (Olm error code: %s)" % e
-            )
+            # Generate a new key pair and turns it into a pickle.
+            self._decryptor = PkDecryption()
+            pickle_bytes = self._decryptor.pickle(passphrase=key)
 
-        logger.info("Loaded Olm key pair from pickle file %s", path)
+            # Try to write the pickle's content into a file.
+            try:
+                with open(path, "w+") as fp:
+                    fp.write(pickle_bytes.decode("ascii"))
+            except OSError as e:
+                raise ConfigError(
+                    "Failed to write the pickle file at the location configured for"
+                    " crypto.pickle_path (%s): %s" % (path, e)
+                )
 
         self.public_key = self._decryptor.public_key
-
-    @staticmethod
-    def generate_and_store_key_pair(config: MatrixContentScannerConfig) -> None:
-        """Generates a new Olm key pair, and store it in the configured pickle file.
-
-        Args:
-            config: The content scanner config.
-
-        Raises:
-            ConfigError if we failed to write the file.
-        """
-        path = config.crypto.pickle_path
-
-        logger.info(
-            "Generating a new Olm key pair and storing it in pickle file %s", path
-        )
-
-        # Generate a new key pair and turns it into a pickle.
-        decryptor = PkDecryption()
-        pickle_bytes = decryptor.pickle(passphrase=config.crypto.pickle_key)
-
-        # Try to write the pickle's content into a file.
-        try:
-            with open(path, "w+") as fp:
-                fp.write(pickle_bytes.decode("ascii"))
-        except OSError as e:
-            raise ConfigError(
-                "Failed to write the pickle file at the location configured for"
-                " crypto.pickle_path (%s): %s" % (path, e)
-            )
 
     def decrypt_body(self, ciphertext: str, mac: str, ephemeral: str) -> JsonDict:
         """Decrypts an Olm-encrypted body.

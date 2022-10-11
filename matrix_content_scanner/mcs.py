@@ -65,6 +65,7 @@ class MatrixContentScanner:
 
     def start(self) -> None:
         """Start the HTTP server and start the reactor."""
+        setup_logging()
         http_server = HTTPServer(self)
         http_server.start()
         self.reactor.run()
@@ -92,8 +93,6 @@ def setup_logging() -> None:
 
 
 if __name__ == "__main__":
-    setup_logging()
-
     parser = argparse.ArgumentParser(
         description="A web service for scanning media hosted by a Matrix media repository."
     )
@@ -102,11 +101,6 @@ if __name__ == "__main__":
         type=argparse.FileType("r"),
         required=True,
         help="The YAML configuration file.",
-    )
-    parser.add_argument(
-        "--generate-secrets",
-        action="store_true",
-        help="Generate secrets such as cryptographic key pairs needed for the content scanner to run.",
     )
 
     args = parser.parse_args()
@@ -117,29 +111,18 @@ if __name__ == "__main__":
     except (ConfigError, ScannerError) as e:
         # If there's an error reading the file, print it and exit without raising so we
         # don't confuse/annoy the user with an unnecessary stack trace.
-        logger.error("Failed to read configuration file: %s", e)
+        print("Failed to read configuration file: %s" % e, file=sys.stderr)
         sys.exit(1)
-
-    # If required by the command-line arguments, generate and store the secrets needed for
-    # the program to run.
-    if args.generate_secrets:
-        try:
-            CryptoHandler.generate_and_store_key_pair(cfg)
-        except ConfigError as e:
-            logger.error("Failed to generate secrets: %s", e)
-            sys.exit(1)
-
-        sys.exit(0)
 
     # Create the content scanner.
     mcs = MatrixContentScanner(cfg)
 
     # Construct the crypto handler early on, so we can make sure we can load the Olm key
-    # pair from the pickle file.
+    # pair from the pickle file (or write it if it doesn't already exist).
     try:
         _ = mcs.crypto_handler
     except ConfigError as e:
-        logger.error(e)
+        print(e, file=sys.stderr)
         sys.exit(1)
 
     # Start the content scanner.

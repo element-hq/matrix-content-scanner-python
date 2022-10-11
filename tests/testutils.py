@@ -18,7 +18,6 @@ from typing import Optional
 from twisted.web.http_headers import Headers
 
 from matrix_content_scanner.config import MatrixContentScannerConfig
-from matrix_content_scanner.crypto import CryptoHandler
 from matrix_content_scanner.mcs import MatrixContentScanner
 from matrix_content_scanner.utils.types import JsonDict
 
@@ -125,8 +124,5 @@ def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScann
     default_config.update(config)
 
     parsed_config = MatrixContentScannerConfig(default_config)
-
-    # Generate the Olm key pair and store them in a pickle file.
-    CryptoHandler.generate_and_store_key_pair(parsed_config)
 
     return MatrixContentScanner(parsed_config)
