@@ -56,7 +56,7 @@ deployment instructions) is the configuration format:
 * `acceptedMimeType` is renamed `scan.allowed_mimetypes`
 * `requestHeader` is renamed `download.additional_headers` and turned into a dictionary.
 
-Note that the format of the cryptographic pickle file file and key are compatible between
+Note that the format of the cryptographic pickle file and key are compatible between
 this project and the legacy Matrix Content Scanner. If no file exist at that path one will
 be created automatically.
 

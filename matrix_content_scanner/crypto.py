@@ -52,18 +52,12 @@ class CryptoHandler:
                 # content.
                 raise ConfigError(
                     "Configured value for crypto.pickle_key is incorrect or pickle file"
-                    " is corrupted (Olm error code: %s)" % e
+                    f" is corrupted (Olm error code: {e})"
                 )
 
             logger.info("Loaded Olm key pair from pickle file %s", path)
 
-        except OSError as e:
-            if not isinstance(e, FileNotFoundError):
-                raise ConfigError(
-                    "Failed to read the pickle file at the location configured for"
-                    " crypto.pickle_path (%s): %s" % (path, e)
-                )
-
+        except FileNotFoundError:
             logger.info(
                 "Pickle file not found, generating a new Olm key pair and storing it in"
                 " pickle file %s",
@@ -81,8 +75,14 @@ class CryptoHandler:
             except OSError as e:
                 raise ConfigError(
                     "Failed to write the pickle file at the location configured for"
-                    " crypto.pickle_path (%s): %s" % (path, e)
+                    f" crypto.pickle_path ({path}): {e}"
                 )
+
+        except OSError as e:
+            raise ConfigError(
+                "Failed to read the pickle file at the location configured for"
+                f" crypto.pickle_path ({path}): {e}"
+            )
 
         self.public_key = self._decryptor.public_key
 
