@@ -24,6 +24,7 @@ from yaml.scanner import ScannerError
 
 from matrix_content_scanner import logutils
 from matrix_content_scanner.config import MatrixContentScannerConfig
+from matrix_content_scanner.crypto import CryptoHandler
 from matrix_content_scanner.httpserver import HTTPServer
 from matrix_content_scanner.scanner.file_downloader import FileDownloader
 from matrix_content_scanner.scanner.scanner import Scanner
@@ -57,6 +58,10 @@ class MatrixContentScanner:
     @cached_property
     def scanner(self) -> Scanner:
         return Scanner(self)
+
+    @cached_property
+    def crypto_handler(self) -> CryptoHandler:
+        return CryptoHandler(self)
 
     def start(self) -> None:
         """Start the HTTP server and start the reactor."""
@@ -106,9 +111,19 @@ if __name__ == "__main__":
     except (ConfigError, ScannerError) as e:
         # If there's an error reading the file, print it and exit without raising so we
         # don't confuse/annoy the user with an unnecessary stack trace.
-        logger.error("Failed to read configuration file: %s", e)
+        print("Failed to read configuration file: %s" % e, file=sys.stderr)
+        sys.exit(1)
+
+    # Create the content scanner.
+    mcs = MatrixContentScanner(cfg)
+
+    # Construct the crypto handler early on, so we can make sure we can load the Olm key
+    # pair from the pickle file (or write it if it doesn't already exist).
+    try:
+        _ = mcs.crypto_handler
+    except ConfigError as e:
+        print(e, file=sys.stderr)
         sys.exit(1)
 
     # Start the content scanner.
-    mcs = MatrixContentScanner(cfg)
     mcs.start()

@@ -123,4 +123,6 @@ def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScann
     # all required settings in that section.
     default_config.update(config)
 
-    return MatrixContentScanner(MatrixContentScannerConfig(default_config))
+    parsed_config = MatrixContentScannerConfig(default_config)
+
+    return MatrixContentScanner(parsed_config)

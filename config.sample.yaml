@@ -100,10 +100,12 @@ download:
 
 # Configuration for decrypting Olm-encrypted request bodies.
 crypto:
-    # The path to the Olm pickle file.
+    # The path to the Olm pickle file. This file contains the key pair to use when
+    # encrypting and decrypting encrypted POST request bodies.
+    # A new keypair will be created at startup if the pickle file doesn't already exist.
     # Required.
     pickle_path: "./pickle"
 
-    # The key to the pickle.
+    # The key to use to decode the pickle file.
     # Required.
     pickle_key: "this_is_a_secret"
