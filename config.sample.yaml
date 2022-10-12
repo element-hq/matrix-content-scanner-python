@@ -102,7 +102,7 @@ download:
 crypto:
     # The path to the Olm pickle file. This file contains the key pair to use when
     # encrypting and decrypting encrypted POST request bodies.
-    # The pickle file is automatically created at startup if it doesn't already exist.
+    # A new keypair will be created at startup if the pickle file doesn't already exist.
     # Required.
     pickle_path: "./pickle"
 
