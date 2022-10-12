@@ -91,7 +91,7 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
             )
 
     def _send_error(
-        self, request: Request, status: int, reason: ErrCode, info: str
+        self, request: Request, status: int, reason: ErrCode, info: Optional[str]
     ) -> None:
         """Send an error response with the provided parameters.
 
@@ -103,8 +103,16 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
         """
         request.setResponseCode(status)
         request.setHeader("Content-Type", "application/json")
-        res = _to_json_bytes({"reason": str(reason), "info": info})
+
+        # Write the reason for the error into the response body, and add some extra info
+        # if we have any.
+        res_body = {"reason": str(reason)}
+        if info is not None:
+            res_body["info"] = info
+
+        res = _to_json_bytes(res_body)
         request.write(res)
+
         request.finish()
 
     @abc.abstractmethod
