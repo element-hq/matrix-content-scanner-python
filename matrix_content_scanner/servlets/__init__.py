@@ -48,6 +48,7 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
 
         # Set the request type in the logging context.
         assert request.path is not None
+        assert request.path.startswith(b"/_matrix/media_proxy/unstable")
         parts = request.path.split(b"/")
         # Paths in the content scanner API use the form
         # "/_matrix/media_proxy/unstable/{requestType}/...", so the request type is at
