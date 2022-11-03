@@ -39,7 +39,7 @@ class ThumbnailServlet(BytesResource):
         logutils.set_media_path_in_context(media_path)
 
         # request.args stores all keys and values as bytes. However, we want them to be
-        # string going forward, so we convert them now.
+        # strings going forward, so we convert them now.
         thumbnail_params: Dict[str, List[str]] = {}
         for key, values in request.args.items():
             str_values: List[str] = []
