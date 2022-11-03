@@ -200,10 +200,9 @@ def get_media_metadata_from_request(
 
     validate_encrypted_file_metadata(metadata)
 
-    # Get the media path and set the context.
+    # Get the media path.
     url = metadata["file"]["url"]
     media_path = url[len("mxc://") :]
-    logutils.set_media_path_in_context(media_path)
 
     return media_path, metadata
 
