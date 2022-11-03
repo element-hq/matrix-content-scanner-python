@@ -64,6 +64,7 @@ class ScanEncryptedServlet(JsonResource):
         media_path, metadata = get_media_metadata_from_request(
             request, self._crypto_handler
         )
+        logutils.set_media_path_in_context(media_path)
 
         try:
             await self._scanner.scan_file(media_path, metadata)
