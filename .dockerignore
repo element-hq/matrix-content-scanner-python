@@ -1,0 +1,10 @@
+# ignore everything by default
+*
+
+# things to include
+!matrix_content_scanner
+!README.md
+!pyproject.toml
+!setup.cfg
+
+**/__pycache__

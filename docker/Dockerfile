@@ -7,7 +7,7 @@ FROM docker.io/python:${PYTHON_VERSION}-slim
 RUN apt-get update -qq && apt-get install -qq libmagic1
 
 # Copy the necessary project files into the image.
-COPY setup.cfg pyproject.toml /
+COPY setup.cfg pyproject.toml README.md /
 COPY matrix_content_scanner /matrix_content_scanner/
 
 # Install the project and its dependencies, using gitlab.matrix.org as the index. This is
