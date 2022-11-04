@@ -32,6 +32,8 @@ from matrix_content_scanner.utils.types import JsonDict
 
 logger = logging.getLogger(__name__)
 
+_next_request_seq = 0
+
 
 class _AsyncResource(Resource, metaclass=abc.ABCMeta):
     def render(self, request: Request) -> int:
@@ -49,11 +51,13 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
         # Set the request type in the logging context.
         assert request.path is not None
         assert request.path.startswith(b"/_matrix/media_proxy/unstable")
-        parts = request.path.split(b"/")
-        # Paths in the content scanner API use the form
-        # "/_matrix/media_proxy/unstable/{requestType}/...", so the request type is at
-        # index 4 in the parts.
-        logutils.set_request_type_in_context(parts[4].decode("ascii"))
+
+        # Set the request ID in the logging context, and increment the sequence for the
+        # next request.
+        global _next_request_seq
+        request_id = f"{request_method}-{_next_request_seq}"
+        logutils.set_request_id_in_context(request_id)
+        _next_request_seq += 1
 
         # Try to find a handler for this request.
         method_handler: Callable[[Request], Awaitable[Tuple[int, Any]]] = getattr(

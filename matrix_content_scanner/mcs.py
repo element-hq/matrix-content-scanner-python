@@ -76,7 +76,7 @@ def setup_logging() -> None:
     # Set the format, this assumes every logger is created by
     # matrix_content_scanner.logging.getLogger and has custom request_type and
     # media_path fields set.
-    log_format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request_type)s - %(media_path)s - %(message)s"
+    log_format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request_id)s - %(message)s"
     formatter = logging.Formatter(log_format)
 
     logutils.setup_custom_factory()

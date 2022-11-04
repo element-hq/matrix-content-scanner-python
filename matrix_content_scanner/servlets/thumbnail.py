@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 from twisted.web.http import Request
 
-from matrix_content_scanner import logutils
 from matrix_content_scanner.servlets import BytesResource
 from matrix_content_scanner.utils.types import JsonDict
 
@@ -36,7 +35,6 @@ class ThumbnailServlet(BytesResource):
         # mypy doesn't recognise request.postpath but it does exist and is documented.
         media_path_bytes: bytes = b"/".join(request.postpath)  # type: ignore[attr-defined]
         media_path = media_path_bytes.decode("ascii")
-        logutils.set_media_path_in_context(media_path)
 
         # request.args stores all keys and values as bytes. However, we want them to be
         # strings going forward, so we convert them now.

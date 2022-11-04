@@ -15,10 +15,8 @@ import logging
 from contextvars import ContextVar
 from typing import Any
 
-# The serverName/mediaId path of the media.
-media_path: ContextVar[str] = ContextVar("media_path")
-# The request being performed (download, thumbnail, scan, etc).
-request_type: ContextVar[str] = ContextVar("request_type")
+# The request's ID.
+request_id: ContextVar[str] = ContextVar("request_id")
 
 
 def setup_custom_factory() -> None:
@@ -34,26 +32,16 @@ def setup_custom_factory() -> None:
         record = old_factory(*args, **kwargs)
         # Define custom attributes on the records. We need to ignore the types here
         # because otherwise mypy complains the attributes aren't defined on LogRecord.
-        record.media_path = media_path.get(None)  # type: ignore[attr-defined]
-        record.request_type = request_type.get(None)  # type: ignore[attr-defined]
+        record.request_id = request_id.get(None)  # type: ignore[attr-defined]
         return record
 
     logging.setLogRecordFactory(_factory)
 
 
-def set_request_type_in_context(v: str) -> None:
-    """Sets the request_type ContextVar to the given value.
+def set_request_id_in_context(v: str) -> None:
+    """Sets the request_id ContextVar to the given value.
 
     Args:
         v: The value to set the ContextVar.
     """
-    request_type.set(v)
-
-
-def set_media_path_in_context(v: str) -> None:
-    """Sets the media_path ContextVar to the given value.
-
-    Args:
-        v: The value to set the ContextVar.
-    """
-    media_path.set(v)
+    request_id.set(v)
