@@ -111,7 +111,7 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
 
         # Write the reason for the error into the response body, and add some extra info
         # if we have any.
-        res_body = {"reason": str(reason)}
+        res_body: JsonDict = {"reason": reason}
         if info is not None:
             res_body["info"] = info
 
