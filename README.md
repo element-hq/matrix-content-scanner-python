@@ -32,6 +32,22 @@ python -m matrix_content_scanner.mcs -c CONFIG_FILE
 
 Where `CONFIG_FILE` is the path to your configuration file.
 
+## Docker
+
+This project provides a Docker image to run it, published as
+`matrixdotorg/matrix-content-scanner`.
+
+To use it, copy the [sample configuration file](/config.sample.yaml) into a dedicated
+directory, edit it accordingly with your requirements, and then mount this directory as
+`/data` in the image. Do not forget to also publish the port that the content scanner's
+Web server is configured to listen on.
+
+For example, assuming the port for the Web server is `8080`:
+
+```shell
+docker run -p 8080:8080 -v /path/to/your/config/directory:/data matrixdotorg/matrix-content-scanner
+```
+
 ## API
 
 See [the API documentation](/docs/api.md) for information about how clients are expected
