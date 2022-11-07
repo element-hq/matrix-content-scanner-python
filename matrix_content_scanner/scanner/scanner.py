@@ -125,7 +125,8 @@ class Scanner:
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
-
+        # Compute the key to use when caching, both in the current scans cache and in the
+        # results cache.
         cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
         if cache_key not in self._current_scans:
             # Create a future in the context of the current event loop.
@@ -136,7 +137,7 @@ class Scanner:
             self._current_scans[cache_key] = f
             # Try to download and scan the file.
             try:
-                res = await self._scan_file(media_path, metadata, thumbnail_params)
+                res = await self._scan_file(cache_key, media_path, metadata, thumbnail_params)
                 # Set the future's result, and mark it as done.
                 f.set_result(res)
                 # Return the result.
@@ -160,6 +161,7 @@ class Scanner:
 
     async def _scan_file(
         self,
+        cache_key: str,
         media_path: str,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional[Dict[str, List[str]]] = None,
@@ -174,6 +176,7 @@ class Scanner:
         content to save up on memory).
 
         Args:
+            cache_key: The key to use to cache the result of the scan in the result cache.
             media_path: The `server_name/media_id` path for the media.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
@@ -188,9 +191,6 @@ class Scanner:
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
-        # Compute the cache key for the media.
-        cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
-
         # The media to scan.
         media: Optional[MediaDescription] = None
 
