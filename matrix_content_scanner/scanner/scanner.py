@@ -12,14 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import asyncio
-import functools
 import hashlib
 import logging
 import os
 import subprocess
 from asyncio import Future
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Callable
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import attr
 from cachetools import TTLCache
@@ -137,7 +136,9 @@ class Scanner:
             self._current_scans[cache_key] = f
             # Try to download and scan the file.
             try:
-                res = await self._scan_file(cache_key, media_path, metadata, thumbnail_params)
+                res = await self._scan_file(
+                    cache_key, media_path, metadata, thumbnail_params
+                )
                 # Set the future's result, and mark it as done.
                 f.set_result(res)
                 # Return the result.

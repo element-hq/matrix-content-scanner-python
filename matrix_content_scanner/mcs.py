@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
-import asyncio
 import logging
 import sys
 from functools import cached_property
 
-import twisted.internet.reactor
 import yaml
 from twisted.internet import asyncioreactor
 from twisted.internet.interfaces import IReactorCore, IReactorTCP
