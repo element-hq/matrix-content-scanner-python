@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import asyncio
 import logging
 import sys
 from functools import cached_property
 
 import twisted.internet.reactor
 import yaml
+from twisted.internet import asyncioreactor
 from twisted.internet.interfaces import IReactorCore, IReactorTCP
 from twisted.python import log
 from yaml.scanner import ScannerError
@@ -46,10 +48,11 @@ class MatrixContentScanner:
     def __init__(
         self,
         config: MatrixContentScannerConfig,
-        reactor: Reactor = twisted.internet.reactor,  # type: ignore[assignment]
     ) -> None:
         self.config = config
-        self.reactor = reactor
+        # Always use Twisted's asyncio reactor, because we need to use Futures in the
+        # scanner.
+        self.reactor = asyncioreactor.AsyncioSelectorReactor()
 
     @cached_property
     def file_downloader(self) -> FileDownloader:
