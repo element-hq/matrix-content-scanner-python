@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import copy
 from typing import Dict, List, Optional
 from unittest.mock import Mock
@@ -293,6 +294,35 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         """Tests that a scan fails if the media path is invalid."""
         with self.assertRaises(FileDirtyError):
             await self.scanner.scan_file(MEDIA_PATH + "/baz")
+
+    async def test_deduplicate_scans(self) -> None:
+        """Tests that if two scan requests come in for the same file and with the same
+        parameter, only one download/scan happens.
+        """
+
+        # Change the Mock's side effect to introduce some delay, to simulate a long
+        # download time. We sleep asynchronously to allow additional scans requests to be
+        # processed.
+        async def download_file(
+            media_path: str,
+            thumbnail_params: Optional[Dict[str, List[str]]] = None,
+        ) -> MediaDescription:
+            await asyncio.sleep(1.0)
+
+            return self.downloader_res
+
+        self.downloader_mock.side_effect = download_file
+
+        # Request two scans of the same file.
+        file_1 = await self.scanner.scan_file(MEDIA_PATH)
+        file_2 = await self.scanner.scan_file(MEDIA_PATH)
+
+        # Check that the downloader has only been called once, meaning that the second
+        # call did not trigger a download.
+        self.downloader_mock.assert_called_once()
+
+        # Check that we actually got the correct media description in the second scan.
+        self.assertEqual(file_1.content, file_2.content, file_2)
 
     def _setup_encrypted(self) -> None:
         """Sets up class properties to make the downloader return an encrypted file
