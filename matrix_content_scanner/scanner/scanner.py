@@ -89,7 +89,7 @@ class Scanner:
 
         # Cache of futures for files that are currently scanning and downloading, so that
         # concurrent requests don't cause a file to be downloaded and scanned twice.
-        self._current_scans: Dict[str, Future] = {}
+        self._current_scans: Dict[str, Future[MediaDescription]] = {}
 
     async def scan_file(
         self,
@@ -156,9 +156,12 @@ class Scanner:
                 # Remove the future from the cache.
                 del self._current_scans[cache_key]
 
-        # We need to turn the future into a Deferred before awaiting on it.
-        f = Deferred.fromFuture(self._current_scans[cache_key])
-        return await f
+        # We need to turn the future into a Deferred before awaiting on it, to make
+        # Twisted and asyncio happy.
+        d: Deferred[MediaDescription] = Deferred.fromFuture(
+            self._current_scans[cache_key]
+        )
+        return await d
 
     async def _scan_file(
         self,
