@@ -13,7 +13,7 @@
 #  limitations under the License.
 import asyncio
 import copy
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
 
 import aiounittest
