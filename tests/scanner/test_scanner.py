@@ -303,26 +303,28 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         # Change the Mock's side effect to introduce some delay, to simulate a long
         # download time. We sleep asynchronously to allow additional scans requests to be
         # processed.
-        async def download_file(
-            media_path: str,
-            thumbnail_params: Optional[Dict[str, List[str]]] = None,
-        ) -> MediaDescription:
-            await asyncio.sleep(1.0)
+        async def _scan_file(*args) -> MediaDescription:
+            await asyncio.sleep(0.2)
 
             return self.downloader_res
 
-        self.downloader_mock.side_effect = download_file
+        scan_mock = Mock(side_effect=_scan_file)
+        self.scanner._scan_file = scan_mock
 
-        # Request two scans of the same file.
-        file_1 = await self.scanner.scan_file(MEDIA_PATH)
-        file_2 = await self.scanner.scan_file(MEDIA_PATH)
+        # Request two scans of the same file at the same time.
+        results = await asyncio.gather(
+            asyncio.create_task(self.scanner.scan_file(MEDIA_PATH)),
+            asyncio.create_task(self.scanner.scan_file(MEDIA_PATH)),
+        )
 
-        # Check that the downloader has only been called once, meaning that the second
-        # call did not trigger a download.
-        self.downloader_mock.assert_called_once()
+        # Check that the scanner has only been called once, meaning that the second
+        # call did not trigger a scan.
+        scan_mock.assert_called_once()
 
-        # Check that we actually got the correct media description in the second scan.
-        self.assertEqual(file_1.content, file_2.content, file_2)
+        # Check that we got two results, and that we actually got the correct media
+        # description in the second scan.
+        self.assertEqual(len(results), 2, results)
+        self.assertEqual(results[0].content, results[1].content, results)
 
     def _setup_encrypted(self) -> None:
         """Sets up class properties to make the downloader return an encrypted file

@@ -27,7 +27,6 @@ from humanfriendly import format_size
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 from mautrix.util import magic
-from twisted.internet.defer import Deferred
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
@@ -156,12 +155,7 @@ class Scanner:
                 # Remove the future from the cache.
                 del self._current_scans[cache_key]
 
-        # We need to turn the future into a Deferred before awaiting on it, to make
-        # Twisted and asyncio happy.
-        d: Deferred[MediaDescription] = Deferred.fromFuture(
-            self._current_scans[cache_key]
-        )
-        return await d
+        return await self._current_scans[cache_key]
 
     async def _scan_file(
         self,
