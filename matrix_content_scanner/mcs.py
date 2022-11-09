@@ -16,6 +16,7 @@ import logging
 import sys
 from functools import cached_property
 
+import twisted
 import yaml
 from twisted.internet import asyncioreactor
 from twisted.internet.interfaces import IReactorCore, IReactorTCP
@@ -32,6 +33,9 @@ from matrix_content_scanner.utils.errors import ConfigError
 
 logger = logging.getLogger(__name__)
 
+# Always use Twisted's asyncio reactor, because we need to use Futures in the scanner.
+asyncioreactor.install()
+
 
 class Reactor(
     IReactorCore,
@@ -46,11 +50,10 @@ class MatrixContentScanner:
     def __init__(
         self,
         config: MatrixContentScannerConfig,
+        reactor: Reactor = twisted.internet.reactor,  # type: ignore[assignment]
     ) -> None:
         self.config = config
-        # Always use Twisted's asyncio reactor, because we need to use Futures in the
-        # scanner.
-        self.reactor = asyncioreactor.AsyncioSelectorReactor()
+        self.reactor = reactor
 
     @cached_property
     def file_downloader(self) -> FileDownloader:
