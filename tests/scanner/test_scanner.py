@@ -13,7 +13,7 @@
 #  limitations under the License.
 import asyncio
 import copy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from unittest.mock import Mock
 
 import aiounittest
@@ -303,13 +303,13 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         # Change the Mock's side effect to introduce some delay, to simulate a long
         # download time. We sleep asynchronously to allow additional scans requests to be
         # processed.
-        async def _scan_file(*args) -> MediaDescription:
+        async def _scan_file(*args: Any) -> MediaDescription:
             await asyncio.sleep(0.2)
 
             return self.downloader_res
 
         scan_mock = Mock(side_effect=_scan_file)
-        self.scanner._scan_file = scan_mock
+        self.scanner._scan_file = scan_mock  # type: ignore[assignment]
 
         # Request two scans of the same file at the same time.
         results = await asyncio.gather(
