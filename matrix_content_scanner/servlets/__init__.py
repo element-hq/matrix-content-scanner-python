@@ -39,6 +39,7 @@ _Handler = TypeVar("_Handler")
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class _BytesResponse:
     """A binary response, and the headers to send back to the client alongside it."""
+
     headers: CIMultiDictProxy[str]
     content: bytes
 
@@ -57,6 +58,7 @@ def web_handler(
     Returns:
         The wrapper to run for this function.
     """
+
     def handle_error(status: int, reason: ErrCode, info: Optional[str]) -> web.Response:
         """Turns an error with the given parameters into an aiohttp Response.
 
@@ -149,7 +151,8 @@ def _to_json_bytes(content: JsonDict) -> bytes:
 
 
 async def get_media_metadata_from_request(
-    request: web.Request, crypto_handler: CryptoHandler,
+    request: web.Request,
+    crypto_handler: CryptoHandler,
 ) -> Tuple[str, JsonDict]:
     """Extracts, optionally decrypts, and validates encrypted file metadata from a
     request body.
