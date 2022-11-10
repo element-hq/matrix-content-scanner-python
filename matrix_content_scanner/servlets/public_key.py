@@ -13,21 +13,20 @@
 #  limitations under the License.
 from typing import TYPE_CHECKING, Tuple
 
-from twisted.web.http import Request
+from aiohttp import web
 
-from matrix_content_scanner.servlets import JsonResource
+from matrix_content_scanner.servlets import web_handler
 from matrix_content_scanner.utils.types import JsonDict
 
 if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
 
 
-class PublicKeyServlet(JsonResource):
-    """Handles GET requests to .../public_key"""
-
+class PublicKeyHandler:
     def __init__(self, content_scanner: "MatrixContentScanner") -> None:
-        super().__init__()
         self._crypto_handler = content_scanner.crypto_handler
 
-    async def on_GET(self, request: Request) -> Tuple[int, JsonDict]:
+    @web_handler
+    async def handle_public_key(self, request: web.Request) -> Tuple[int, JsonDict]:
+        """Handles GET requests to .../public_key"""
         return 200, {"public_key": self._crypto_handler.public_key}

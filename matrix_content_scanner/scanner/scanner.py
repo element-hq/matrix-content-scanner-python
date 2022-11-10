@@ -25,6 +25,7 @@ from humanfriendly import format_size
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 from mautrix.util import magic
+from multidict import MultiDictProxy
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
@@ -88,7 +89,7 @@ class Scanner:
         self,
         media_path: str,
         metadata: Optional[JsonDict] = None,
-        thumbnail_params: Optional[Dict[str, List[str]]] = None,
+        thumbnail_params: Optional[MultiDictProxy[str]] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
@@ -295,7 +296,7 @@ class Scanner:
         self,
         media_path: str,
         metadata: Optional[JsonDict],
-        thumbnail_params: Optional[Dict[str, List[str]]],
+        thumbnail_params: Optional[MultiDictProxy[str]],
     ) -> str:
         """Generates the key to use to store the result for the given media in the result
         cache.
@@ -313,12 +314,20 @@ class Scanner:
                 is passed, this will be an empty dict. If the media being requested is not
                 a thumbnail, this will be None.
         """
+        # If we're provided with thumbnailing parameters, turn them into a structure that
+        # can be serialised as JSON.
+        thumbnail_params_json: Optional[Dict[str, List[str]]] = None
+        if thumbnail_params is not None:
+            thumbnail_params_json = {}
+            for k in thumbnail_params.keys():
+                thumbnail_params_json[k] = thumbnail_params.getall(k)
+
         hash = hashlib.sha256()
         hash.update(media_path.encode("utf8"))
         hash.update(b"\0")
         hash.update(encode_canonical_json(metadata))
         hash.update(b"\0")
-        hash.update(encode_canonical_json(thumbnail_params))
+        hash.update(encode_canonical_json(thumbnail_params_json))
 
         return hash.hexdigest()
 
@@ -335,7 +344,7 @@ class Scanner:
         Raises:
             ContentScannerRestError(400) if the decryption failed.
         """
-        logger.info("File is encrypted, decrypting")
+        logger.info("Decrypting encrypted file")
 
         # At this point the schema should have been validated so we can pull these values
         # out safely.

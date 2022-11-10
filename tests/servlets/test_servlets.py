@@ -31,8 +31,7 @@ class EncryptedFileMetadataTestCase(unittest.TestCase):
         """Tests that the _metadata_from_body function correctly returns non-encrypted
         metadata.
         """
-        body_bytes = json.dumps(ENCRYPTED_FILE_METADATA)
-        metadata = _metadata_from_body(body_bytes, self.crypto_handler)
+        metadata = _metadata_from_body(ENCRYPTED_FILE_METADATA, self.crypto_handler)
         self.assertEqual(metadata, ENCRYPTED_FILE_METADATA)
 
     def test_encrypted(self) -> None:
@@ -40,16 +39,15 @@ class EncryptedFileMetadataTestCase(unittest.TestCase):
         metadata and returns a decrypted version.
         """
         encrypted_body = self._encrypt_body(ENCRYPTED_FILE_METADATA)
-        body_bytes = json.dumps(encrypted_body)
-        metadata = _metadata_from_body(body_bytes, self.crypto_handler)
+        metadata = _metadata_from_body(encrypted_body, self.crypto_handler)
         self.assertEqual(metadata, ENCRYPTED_FILE_METADATA)
 
     def test_bad_json(self) -> None:
         """Tests that the _metadata_from_body function raises a REST error if the request
-        body is not valid JSON.
+        body is not a valid JSON object.
         """
         with self.assertRaises(ContentScannerRestError) as cm:
-            _metadata_from_body("foo", self.crypto_handler)
+            _metadata_from_body("foo", self.crypto_handler)  # type: ignore[arg-type]
 
         self.assertEqual(cm.exception.reason, ErrCode.MALFORMED_JSON)
 

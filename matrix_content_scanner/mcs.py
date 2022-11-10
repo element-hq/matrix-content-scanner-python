@@ -16,10 +16,7 @@ import logging
 import sys
 from functools import cached_property
 
-import twisted.internet.reactor
 import yaml
-from twisted.internet.interfaces import IReactorCore, IReactorTCP
-from twisted.python import log
 from yaml.scanner import ScannerError
 
 from matrix_content_scanner import logutils
@@ -33,23 +30,12 @@ from matrix_content_scanner.utils.errors import ConfigError
 logger = logging.getLogger(__name__)
 
 
-class Reactor(
-    IReactorCore,
-    IReactorTCP,
-):
-    """A dummy class we use to tell mypy the reactor we're using has the methods we need."""
-
-    pass
-
-
 class MatrixContentScanner:
     def __init__(
         self,
         config: MatrixContentScannerConfig,
-        reactor: Reactor = twisted.internet.reactor,  # type: ignore[assignment]
     ) -> None:
         self.config = config
-        self.reactor = reactor
 
     @cached_property
     def file_downloader(self) -> FileDownloader:
@@ -64,11 +50,9 @@ class MatrixContentScanner:
         return CryptoHandler(self)
 
     def start(self) -> None:
-        """Start the HTTP server and start the reactor."""
         setup_logging()
         http_server = HTTPServer(self)
         http_server.start()
-        self.reactor.run()
 
 
 def setup_logging() -> None:
@@ -87,9 +71,6 @@ def setup_logging() -> None:
     rootLogger = logging.getLogger("")
     rootLogger.setLevel(logging.INFO)
     rootLogger.addHandler(handler)
-
-    observer = log.PythonLoggingObserver()
-    observer.start()
 
 
 if __name__ == "__main__":

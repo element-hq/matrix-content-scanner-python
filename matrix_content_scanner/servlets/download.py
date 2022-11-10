@@ -11,13 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple
 
-from twisted.web.http import Request
+from aiohttp import web
 
 from matrix_content_scanner.servlets import (
-    BytesResource,
+    _BytesResponse,
     get_media_metadata_from_request,
+    web_handler,
 )
 from matrix_content_scanner.utils.types import JsonDict
 
@@ -25,37 +26,36 @@ if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
 
 
-class DownloadServlet(BytesResource):
-    """Handles GET requests to .../download/serverName/mediaId"""
-
-    isLeaf = True
-
+class DownloadHandler:
     def __init__(self, content_scanner: "MatrixContentScanner"):
-        super().__init__()
-        self._scanner = content_scanner.scanner
-
-    async def on_GET(self, request: Request) -> Tuple[int, Union[bytes, JsonDict]]:
-        # mypy doesn't recognise request.postpath but it does exist and is documented.
-        media_path_bytes: bytes = b"/".join(request.postpath)  # type: ignore[attr-defined]
-        media_path = media_path_bytes.decode("ascii")
-        media = await self._scanner.scan_file(media_path)
-        request.responseHeaders = media.response_headers
-        return 200, media.content
-
-
-class DownloadEncryptedServlet(BytesResource):
-    """Handles POST requests to .../download_encrypted"""
-
-    def __init__(self, content_scanner: "MatrixContentScanner"):
-        super().__init__()
         self._scanner = content_scanner.scanner
         self._crypto_handler = content_scanner.crypto_handler
 
-    async def on_POST(self, request: Request) -> Tuple[int, Union[bytes, JsonDict]]:
-        media_path, metadata = get_media_metadata_from_request(
+    async def _scan(
+        self,
+        media_path: str,
+        metadata: Optional[JsonDict] = None,
+    ) -> Tuple[int, _BytesResponse]:
+        media = await self._scanner.scan_file(media_path, metadata)
+
+        return 200, _BytesResponse(
+            headers=media.response_headers,
+            content=media.content,
+        )
+
+    @web_handler
+    async def handle_plain(self, request: web.Request) -> Tuple[int, _BytesResponse]:
+        """Handles GET requests to ../download/serverName/mediaId"""
+        media_path = request.match_info["media_path"]
+        return await self._scan(media_path)
+
+    @web_handler
+    async def handle_encrypted(
+        self, request: web.Request
+    ) -> Tuple[int, _BytesResponse]:
+        """Handles POST requests to ../download_encrypted"""
+        media_path, metadata = await get_media_metadata_from_request(
             request, self._crypto_handler
         )
 
-        media = await self._scanner.scan_file(media_path, metadata)
-        request.responseHeaders = media.response_headers
-        return 200, media.content
+        return await self._scan(media_path, metadata)

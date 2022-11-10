@@ -11,43 +11,38 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
-from twisted.web.http import Request
+from aiohttp import web
 
-from matrix_content_scanner.servlets import BytesResource
-from matrix_content_scanner.utils.types import JsonDict
+from matrix_content_scanner.servlets import _BytesResponse, web_handler
 
 if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
 
 
-class ThumbnailServlet(BytesResource):
-    """Handles GET requests to .../thumbnail/serverName/mediaId"""
-
-    isLeaf = True
-
+class ThumbnailHandler:
     def __init__(self, content_scanner: "MatrixContentScanner"):
-        super().__init__()
         self._scanner = content_scanner.scanner
 
-    async def on_GET(self, request: Request) -> Tuple[int, Union[bytes, JsonDict]]:
-        # mypy doesn't recognise request.postpath but it does exist and is documented.
-        media_path_bytes: bytes = b"/".join(request.postpath)  # type: ignore[attr-defined]
-        media_path = media_path_bytes.decode("ascii")
+    @web_handler
+    async def handle_thumbnail(
+        self, request: web.Request
+    ) -> Tuple[int, _BytesResponse]:
+        """Handles GET requests to .../thumbnail/serverName/mediaId"""
+        media_path = request.match_info["media_path"]
 
-        # request.args stores all keys and values as bytes. However, we want them to be
-        # strings going forward, so we convert them now.
+        # request.query is a multidict, however this isn't easily
         thumbnail_params: Dict[str, List[str]] = {}
-        for key, values in request.args.items():
-            str_values: List[str] = []
-            for value in values:
-                str_values.append(value.decode("utf-8"))
-            thumbnail_params[key.decode("utf-8")] = str_values
+        for k in request.query.keys():
+            thumbnail_params[k] = request.query.getall(k)
 
         media = await self._scanner.scan_file(
             media_path=media_path,
-            thumbnail_params=thumbnail_params,
+            thumbnail_params=request.query,
         )
-        request.responseHeaders = media.response_headers
-        return 200, media.content
+
+        return 200, _BytesResponse(
+            headers=media.response_headers,
+            content=media.content,
+        )

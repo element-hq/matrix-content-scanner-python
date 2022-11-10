@@ -11,15 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import abc
+import functools
 import json
 import logging
-from typing import Any, Awaitable, Callable, Optional, Tuple
+from typing import Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union
 
-from twisted.internet import defer
-from twisted.web.http import Request
-from twisted.web.resource import Resource
-from twisted.web.server import NOT_DONE_YET
+import attr
+from aiohttp import web
+from multidict import CIMultiDictProxy
 
 from matrix_content_scanner import logutils
 from matrix_content_scanner.crypto import CryptoHandler
@@ -34,81 +33,38 @@ logger = logging.getLogger(__name__)
 
 _next_request_seq = 0
 
+_Handler = TypeVar("_Handler")
 
-class _AsyncResource(Resource, metaclass=abc.ABCMeta):
-    def render(self, request: Request) -> int:
-        """This gets called by twisted every time someone sends us a request."""
-        defer.ensureDeferred(self._async_render(request))
-        return NOT_DONE_YET
 
-    async def _async_render(self, request: Request) -> None:
-        """Processes the incoming request asynchronously and handles errors."""
-        # Treat HEAD requests as GET requests.
-        request_method = request.method.decode("ascii")
-        if request_method == "HEAD":
-            request_method = "GET"
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class _BytesResponse:
+    """A binary response, and the headers to send back to the client alongside it."""
+    headers: CIMultiDictProxy[str]
+    content: bytes
 
-        # Set the request type in the logging context.
-        assert request.path is not None
-        assert request.path.startswith(b"/_matrix/media_proxy/unstable")
 
-        # Set the request ID in the logging context, and increment the sequence for the
-        # next request.
-        global _next_request_seq
-        request_id = f"{request_method}-{_next_request_seq}"
-        logutils.set_request_id_in_context(request_id)
-        _next_request_seq += 1
+def web_handler(
+    func: Callable[
+        [_Handler, web.Request], Awaitable[Tuple[int, Union[JsonDict, _BytesResponse]]]
+    ],
+) -> Callable[[_Handler, web.Request], Awaitable[web.Response]]:
+    """Decorator that adds a wrapper to the given web handler method, which turns its
+    return value into an aiohttp Response, and handles errors.
 
-        # Try to find a handler for this request.
-        method_handler: Callable[[Request], Awaitable[Tuple[int, Any]]] = getattr(
-            self, "on_%s" % (request_method,), None
-        )  # type: ignore[assignment]
-        if not method_handler:
-            # If we don't have a handler, respond with a 404.
-            self._send_error(
-                request=request,
-                status=404,
-                reason=ErrCode.NOT_FOUND,
-                info="Route not found",
-            )
-            return
+    Args:
+        func: The function to wrap.
 
-        try:
-            # We have a request handler: call it and send the response.
-            code, response = await method_handler(request)
-            self._send_response(request, code, response)
-        except ContentScannerRestError as e:
-            # If we get a REST error, use it to generate an error response.
-            self._send_error(
-                request=request,
-                status=e.http_status,
-                reason=e.reason,
-                info=e.info,
-            )
-        except Exception as e:
-            # Otherwise, just treat it as an unknown server error.
-            logger.exception(e)
-            self._send_error(
-                request=request,
-                status=500,
-                reason=ErrCode.UNKNOWN,
-                info="Internal Server Error",
-            )
-
-    def _send_error(
-        self, request: Request, status: int, reason: ErrCode, info: Optional[str]
-    ) -> None:
-        """Send an error response with the provided parameters.
+    Returns:
+        The wrapper to run for this function.
+    """
+    def handle_error(status: int, reason: ErrCode, info: Optional[str]) -> web.Response:
+        """Turns an error with the given parameters into an aiohttp Response.
 
         Args:
-            request: The request to respond to.
-            status: The HTTP status to respond with.
-            reason: The error code to include in the response.
-            info: Additional human-readable info to include in the response.
+            status: The HTTP status code.
+            reason: The error code to include in the response's JSON body.
+            info: Optional extra info to include in the response's JSON body.
         """
-        request.setResponseCode(status)
-        request.setHeader("Content-Type", "application/json")
-
         # Write the reason for the error into the response body, and add some extra info
         # if we have any.
         res_body: JsonDict = {"reason": reason}
@@ -116,42 +72,75 @@ class _AsyncResource(Resource, metaclass=abc.ABCMeta):
             res_body["info"] = info
 
         res = _to_json_bytes(res_body)
-        request.write(res)
 
-        request.finish()
+        return web.Response(
+            status=status,
+            content_type="application/json",
+            body=res,
+        )
 
-    @abc.abstractmethod
-    def _send_response(
-        self,
-        request: Request,
-        status: int,
-        response_content: Any,
-    ) -> None:
-        """Responds to the request with the given content.
+    @functools.wraps(func)
+    async def wrapper(self: _Handler, request: web.Request) -> web.Response:
+        """Run the wrapped method, and turn the return value into an aiohttp Response.
+
+        If the wrapped method raises an exception, turn that into an aiohttp Response
+        as well.
 
         Args:
-            request: The request to respond to.
-            status: The HTTP status to respond to the request with.
-            response_content: The content to respond with.
+            self: The object the wrapped method belongs to.
+            request: The aiohttp Request to process.
         """
-        raise NotImplementedError()
+        # Set the request ID in the logging context, and increment the sequence for the
+        # next request.
+        global _next_request_seq
+        request_id = f"{request.method}-{_next_request_seq}"
+        logutils.set_request_id_in_context(request_id)
+        _next_request_seq += 1
 
+        # Check that the path is correct.
+        if not request.path.startswith("/_matrix/media_proxy/unstable"):
+            return handle_error(
+                status=400,
+                reason=ErrCode.UNKNOWN,
+                info="Invalid path",
+            )
 
-class JsonResource(_AsyncResource):
-    """A resource that will call `self._async_on_<METHOD>` on new requests,
-    formatting responses and errors as JSON.
-    """
+        try:
+            status, res = await func(self, request)
 
-    def _send_response(
-        self, request: Request, status: int, response_content: Any
-    ) -> None:
-        """Implements _AsyncResource._send_response. Expects response_content to be
-        serialisable into JSON.
-        """
-        request.setResponseCode(status)
-        request.setHeader("Content-Type", "application/json")
-        request.write(_to_json_bytes(response_content))
-        request.finish()
+            # Set the response and headers according to the return value. If the handler
+            # didn't return with a bytes response (in which it is responsible for
+            # providing the headers, including the content-type one), default to json.
+            headers: Union[Dict[str, str], CIMultiDictProxy[str]]
+            if isinstance(res, _BytesResponse):
+                raw_res = res.content
+                headers = res.headers
+            else:
+                raw_res = _to_json_bytes(res)
+                headers = {"content-type": "application/json"}
+
+            return web.Response(
+                status=status,
+                body=raw_res,
+                headers=headers,
+            )
+        except ContentScannerRestError as e:
+            # If we get a REST error, use it to generate an error response.
+            return handle_error(
+                status=e.http_status,
+                reason=e.reason,
+                info=e.info,
+            )
+        except Exception as e:
+            # Otherwise, just treat it as an unknown server error.
+            logger.exception(e)
+            return handle_error(
+                status=500,
+                reason=ErrCode.UNKNOWN,
+                info="Internal Server Error",
+            )
+
+    return wrapper
 
 
 def _to_json_bytes(content: JsonDict) -> bytes:
@@ -159,25 +148,8 @@ def _to_json_bytes(content: JsonDict) -> bytes:
     return json.dumps(content).encode("UTF-8")
 
 
-class BytesResource(_AsyncResource):
-    """A resource that will call `self._async_on_<METHOD>` on new requests,
-    formatting responses and errors as HTML.
-    """
-
-    def _send_response(
-        self, request: Request, status: int, response_content: Any
-    ) -> None:
-        """Implements _AsyncResource._send_response. Expects the child class to have
-        already set the content type header. Also expects response_content to be bytes.
-        """
-        assert isinstance(response_content, bytes)
-        request.setResponseCode(status)
-        request.write(response_content)
-        request.finish()
-
-
-def get_media_metadata_from_request(
-    request: Request, crypto_handler: CryptoHandler
+async def get_media_metadata_from_request(
+    request: web.Request, crypto_handler: CryptoHandler,
 ) -> Tuple[str, JsonDict]:
     """Extracts, optionally decrypts, and validates encrypted file metadata from a
     request body.
@@ -198,7 +170,10 @@ def get_media_metadata_from_request(
             "No content in request body",
         )
 
-    body = request.content.read().decode("ascii")
+    try:
+        body = await request.json()
+    except json.decoder.JSONDecodeError as e:
+        raise ContentScannerRestError(400, ErrCode.MALFORMED_JSON, str(e))
 
     metadata = _metadata_from_body(body, crypto_handler)
 
@@ -211,11 +186,11 @@ def get_media_metadata_from_request(
     return media_path, metadata
 
 
-def _metadata_from_body(body: str, crypto_handler: CryptoHandler) -> JsonDict:
+def _metadata_from_body(body: JsonDict, crypto_handler: CryptoHandler) -> JsonDict:
     """Parse the given body as JSON, and decrypts it if needed.
 
     Args:
-        body: The body to parse.
+        body: The body, parsed as JSON.
         crypto_handler: The crypto handler to use if we need to decrypt an Olm-encrypted
             body.
 
@@ -225,14 +200,8 @@ def _metadata_from_body(body: str, crypto_handler: CryptoHandler) -> JsonDict:
     Raises:
         ContentScannerRestError(400) if the body isn't valid JSON or isn't a dictionary.
     """
-    # Try to parse the raw body.
-    try:
-        parsed_body = json.loads(body)
-    except json.decoder.JSONDecodeError as e:
-        raise ContentScannerRestError(400, ErrCode.MALFORMED_JSON, str(e))
-
     # Every POST request body in the API implemented by the content scanner is a dict.
-    if not isinstance(parsed_body, dict):
+    if not isinstance(body, dict):
         raise ContentScannerRestError(
             400,
             ErrCode.MALFORMED_JSON,
@@ -241,9 +210,9 @@ def _metadata_from_body(body: str, crypto_handler: CryptoHandler) -> JsonDict:
 
     # Check if the metadata is encrypted, if not then the metadata is in clear text in
     # the body so just return it.
-    encrypted_body: Optional[JsonDict] = parsed_body.get("encrypted_body")
+    encrypted_body: Optional[JsonDict] = body.get("encrypted_body")
     if encrypted_body is None:
-        return parsed_body
+        return body
 
     # If it is encrypted, decrypt it and return the decrypted version.
     return crypto_handler.decrypt_body(
