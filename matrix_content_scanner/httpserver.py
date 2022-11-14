@@ -43,7 +43,7 @@ class HTTPServer:
         Returns:
             The built aiohttp application.
         """
-        # First we build an application with all of routes defined on the root path.
+        # First we build an application with all routes defined on the root path.
         app = web.Application()
 
         scan_handler = ScanHandler(self._mcs)
