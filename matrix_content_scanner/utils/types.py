@@ -14,7 +14,7 @@
 from typing import Any, Dict
 
 import attr
-from twisted.web.http_headers import Headers
+from multidict import CIMultiDictProxy
 
 
 @attr.s(auto_attribs=True)
@@ -23,7 +23,7 @@ class MediaDescription:
 
     content_type: str
     content: bytes
-    response_headers: Headers
+    response_headers: CIMultiDictProxy[str]
     cacheable: bool = True
 
 

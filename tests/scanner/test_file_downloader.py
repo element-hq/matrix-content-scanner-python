@@ -12,11 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import json
-from typing import Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, call
 
-import aiounittest
-from twisted.web.http_headers import Headers
+from multidict import CIMultiDict, CIMultiDictProxy, MultiDictProxy
 
 from matrix_content_scanner.utils.errors import (
     ContentScannerRestError,
@@ -28,10 +28,11 @@ from tests.testutils import (
     SMALL_PNG,
     get_base_media_headers,
     get_content_scanner,
+    to_thumbnail_params,
 )
 
 
-class FileDownloaderTestCase(aiounittest.AsyncTestCase):
+class FileDownloaderTestCase(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # Set a fixed base URL so that .well-known discovery doesn't get in the way.
         content_scanner = get_content_scanner(
@@ -43,7 +44,9 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         self.media_body = SMALL_PNG
         self.media_headers = get_base_media_headers()
 
-        async def _get(url: str) -> Tuple[int, bytes, Headers]:
+        async def _get(
+            url: str, query: Optional[MultiDictProxy[str]] = None
+        ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that doesn't serve a
             .well-known client file.
             """
@@ -55,7 +58,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
             ):
                 return self.media_status, self.media_body, self.media_headers
             elif url.endswith("/.well-known/matrix/client"):
-                return 404, b"Not found", Headers()
+                return 404, b"Not found", CIMultiDictProxy(CIMultiDict())
 
             raise RuntimeError("Unexpected request on %s" % url)
 
@@ -89,7 +92,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
-            call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH),
+            call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH, query=None),
         )
 
     async def test_retry_on_404(self) -> None:
@@ -98,7 +101,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         """
         self.media_status = 404
         self.media_body = b"Not found"
-        self.media_headers.setRawHeaders("content-type", ["text/plain"])
+        self._set_headers({"content-type": ["text/plain"]})
 
         await self._test_retry()
 
@@ -109,7 +112,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         """
         self.media_status = 400
         self.media_body = b'{"errcode":"M_UNRECOGNIZED","error":"Unrecognized request"}'
-        self.media_headers.setRawHeaders("content-type", ["application/json"])
+        self._set_headers({"content-type": ["application/json"]})
 
         await self._test_retry()
 
@@ -128,29 +131,34 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         self.assertEqual(self.get_mock.call_count, 2)
         self.assertEqual(
             self.get_mock.mock_calls[0],
-            call("http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH),
+            call(
+                "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH, query=None
+            ),
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
-            call("http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH),
+            call(
+                "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH, query=None
+            ),
         )
 
     async def test_thumbnail(self) -> None:
         """Tests that we can download a thumbnail and that the parameters to generate the
         thumbnail are correctly passed on to the homeserver.
         """
-        await self.downloader.download_file(MEDIA_PATH, {"height": ["50"]})
-        self.assertTrue(
-            self.get_mock.call_args[0][0].endswith(
-                "/thumbnail/%s?height=50" % MEDIA_PATH
-            )
+        await self.downloader.download_file(
+            MEDIA_PATH, to_thumbnail_params({"height": "50"})
         )
+
+        query: CIMultiDictProxy[str] = self.get_mock.call_args[1]["query"]
+        self.assertIn("height", query)
+        self.assertEqual(query.get("height"), "50", query.getall("height"))
 
     async def test_multiple_content_type(self) -> None:
         """Tests that we raise an error if the homeserver responds with too many
         Content-Type headers.
         """
-        self.media_headers.setRawHeaders("content-type", ["image/jpeg", "image/png"])
+        self._set_headers({"content-type": ["image/jpeg", "image/png"]})
 
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(MEDIA_PATH)
@@ -163,7 +171,7 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         """Tests that we raise an error if the homeserver responds with no Content-Type
         headers.
         """
-        self.media_headers.removeHeader("content-type")
+        self._set_headers({})
 
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(MEDIA_PATH)
@@ -172,8 +180,22 @@ class FileDownloaderTestCase(aiounittest.AsyncTestCase):
         assert cm.exception.info is not None
         self.assertTrue("Content-Type" in cm.exception.info)
 
+    def _set_headers(self, headers: Dict[str, List[str]]) -> None:
+        """Replace the headers set in setUp with ones constructed from the provided
+        dictionary.
 
-class WellKnownDiscoveryTestCase(aiounittest.AsyncTestCase):
+        Args:
+            headers: The raw headers to set.
+        """
+        md: CIMultiDict[str] = CIMultiDict()
+        for k, v in headers.items():
+            for el in v:
+                md.add(k, el)
+
+        self.media_headers = CIMultiDictProxy(md)
+
+
+class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.downloader = get_content_scanner().file_downloader
 
@@ -182,7 +204,9 @@ class WellKnownDiscoveryTestCase(aiounittest.AsyncTestCase):
 
         self.versions_status = 200
 
-        async def _get(url: str) -> Tuple[int, bytes, Headers]:
+        async def _get(
+            url: str, query: Optional[MultiDictProxy[str]] = None
+        ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that serves a .well-known
             client file.
             """
@@ -192,9 +216,13 @@ class WellKnownDiscoveryTestCase(aiounittest.AsyncTestCase):
                 else:
                     body_bytes = json.dumps(self.well_known_body).encode("utf-8")
 
-                return self.well_known_status, body_bytes, Headers()
+                return (
+                    self.well_known_status,
+                    body_bytes,
+                    CIMultiDictProxy(CIMultiDict()),
+                )
             elif url.endswith("/_matrix/client/versions"):
-                return self.versions_status, b"{}", Headers()
+                return self.versions_status, b"{}", CIMultiDictProxy(CIMultiDict())
             elif url.endswith("/_matrix/media/v3/download/" + MEDIA_PATH):
                 return 200, SMALL_PNG, get_base_media_headers()
 

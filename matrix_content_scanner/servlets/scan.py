@@ -11,14 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
-from twisted.web.http import Request
+from aiohttp import web
 
-from matrix_content_scanner.servlets import (
-    JsonResource,
-    get_media_metadata_from_request,
-)
+from matrix_content_scanner.servlets import get_media_metadata_from_request, web_handler
 from matrix_content_scanner.utils.errors import FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict
 
@@ -26,43 +23,16 @@ if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
 
 
-class ScanServlet(JsonResource):
-    """Handles GET requests to .../scan/serverName/mediaId"""
-
-    isLeaf = True
-
-    def __init__(self, content_scanner: "MatrixContentScanner") -> None:
-        super().__init__()
-        self._scanner = content_scanner.scanner
-
-    async def on_GET(self, request: Request) -> Tuple[int, JsonDict]:
-        # mypy doesn't recognise request.postpath but it does exist and is documented.
-        media_path_bytes: bytes = b"/".join(request.postpath)  # type: ignore[attr-defined]
-        media_path = media_path_bytes.decode("ascii")
-
-        try:
-            await self._scanner.scan_file(media_path)
-        except FileDirtyError as e:
-            res = {"clean": False, "info": e.info}
-        else:
-            res = {"clean": True, "info": "File is clean"}
-
-        return 200, res
-
-
-class ScanEncryptedServlet(JsonResource):
-    """Handles POST requests to .../download_encrypted"""
-
-    def __init__(self, content_scanner: "MatrixContentScanner") -> None:
-        super().__init__()
+class ScanHandler:
+    def __init__(self, content_scanner: "MatrixContentScanner"):
         self._scanner = content_scanner.scanner
         self._crypto_handler = content_scanner.crypto_handler
 
-    async def on_POST(self, request: Request) -> Tuple[int, JsonDict]:
-        media_path, metadata = get_media_metadata_from_request(
-            request, self._crypto_handler
-        )
-
+    async def _scan_and_format(
+        self,
+        media_path: str,
+        metadata: Optional[JsonDict] = None,
+    ) -> Tuple[int, JsonDict]:
         try:
             await self._scanner.scan_file(media_path, metadata)
         except FileDirtyError as e:
@@ -71,3 +41,17 @@ class ScanEncryptedServlet(JsonResource):
             res = {"clean": True, "info": "File is clean"}
 
         return 200, res
+
+    @web_handler
+    async def handle_plain(self, request: web.Request) -> Tuple[int, JsonDict]:
+        """Handles GET requests to ../scan/serverName/mediaId"""
+        media_path = request.match_info["media_path"]
+        return await self._scan_and_format(media_path)
+
+    @web_handler
+    async def handle_encrypted(self, request: web.Request) -> Tuple[int, JsonDict]:
+        """Handles GET requests to ../scan_encrypted"""
+        media_path, metadata = await get_media_metadata_from_request(
+            request, self._crypto_handler
+        )
+        return await self._scan_and_format(media_path, metadata)

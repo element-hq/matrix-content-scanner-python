@@ -13,9 +13,9 @@
 #  limitations under the License.
 import os
 from binascii import unhexlify
-from typing import Optional
+from typing import Dict, Optional
 
-from twisted.web.http_headers import Headers
+from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
 
 from matrix_content_scanner.config import MatrixContentScannerConfig
 from matrix_content_scanner.mcs import MatrixContentScanner
@@ -75,15 +75,26 @@ ENCRYPTED_FILE_METADATA: JsonDict = {
 }
 
 
-def get_base_media_headers() -> Headers:
+def to_thumbnail_params(params: Dict[str, str]) -> MultiDictProxy[str]:
+    """Turn the given dictionary into query parameters as they'd appear when processing a
+    thumbnailing request.
+
+    Args:
+        params: The raw parameters.
+
+    Returns:
+        A multidict that can be passed onto the scanner or the file downloader.
+    """
+    return MultiDictProxy(MultiDict(params))
+
+
+def get_base_media_headers() -> CIMultiDictProxy[str]:
     """Get the base headers necessary to react to a download request for SMALL_PNG.
 
     Returns:
         The headers to pass onto the file downloader.
     """
-    media_headers = Headers()
-    media_headers.setRawHeaders("content-type", ["image/png"])
-    return media_headers
+    return CIMultiDictProxy(CIMultiDict({"content-type": "image/png"}))
 
 
 def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScanner:
