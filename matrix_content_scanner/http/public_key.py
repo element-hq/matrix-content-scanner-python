@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Tuple
 
 from aiohttp import web
 
-from matrix_content_scanner.servlets import web_handler
+from matrix_content_scanner.http import web_handler
 from matrix_content_scanner.utils.types import JsonDict
 
 if TYPE_CHECKING:
