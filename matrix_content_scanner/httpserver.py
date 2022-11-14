@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
-from matrix_content_scanner.http.download import DownloadHandler
-from matrix_content_scanner.http.public_key import PublicKeyHandler
-from matrix_content_scanner.http.scan import ScanHandler
-from matrix_content_scanner.http.thumbnail import ThumbnailHandler
+from matrix_content_scanner.servlets.download import DownloadHandler
+from matrix_content_scanner.servlets.public_key import PublicKeyHandler
+from matrix_content_scanner.servlets.scan import ScanHandler
+from matrix_content_scanner.servlets.thumbnail import ThumbnailHandler
 
 if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
@@ -43,7 +43,7 @@ class HTTPServer:
         Returns:
             The built aiohttp application.
         """
-        # First we build an application with all the routes defined on the root path.
+        # First we build an application with all of routes defined on the root path.
         app = web.Application()
 
         scan_handler = ScanHandler(self._mcs)

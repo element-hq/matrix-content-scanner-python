@@ -11,11 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 from aiohttp import web
 
-from matrix_content_scanner.http import _BytesResponse, web_handler
+from matrix_content_scanner.servlets import _BytesResponse, web_handler
 
 if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner

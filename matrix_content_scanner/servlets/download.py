@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import web
 
-from matrix_content_scanner.http import (
+from matrix_content_scanner.servlets import (
     _BytesResponse,
     get_media_metadata_from_request,
     web_handler,

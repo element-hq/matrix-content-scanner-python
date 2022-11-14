@@ -16,7 +16,7 @@ import unittest
 
 from olm.pk import PkEncryption
 
-from matrix_content_scanner.http import _metadata_from_body
+from matrix_content_scanner.servlets import _metadata_from_body
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError
 from matrix_content_scanner.utils.types import JsonDict

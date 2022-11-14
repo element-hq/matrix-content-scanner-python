@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import web
 
-from matrix_content_scanner.http import get_media_metadata_from_request, web_handler
+from matrix_content_scanner.servlets import get_media_metadata_from_request, web_handler
 from matrix_content_scanner.utils.errors import FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict
 
