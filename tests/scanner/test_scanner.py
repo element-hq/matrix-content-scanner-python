@@ -14,10 +14,10 @@
 import asyncio
 import copy
 from typing import Any, Dict, List, Optional
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock
 
-import aiounittest
-from twisted.web.http_headers import Headers
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from matrix_content_scanner.scanner.scanner import CacheEntry
 from matrix_content_scanner.utils.constants import ErrCode
@@ -29,15 +29,16 @@ from tests.testutils import (
     SMALL_PNG,
     SMALL_PNG_ENCRYPTED,
     get_content_scanner,
+    to_thumbnail_params,
 )
 
 
-class ScannerTestCase(aiounittest.AsyncTestCase):
+class ScannerTestCase(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.downloader_res = MediaDescription(
             content_type="image/png",
             content=SMALL_PNG,
-            response_headers=Headers(),
+            response_headers=CIMultiDictProxy(CIMultiDict()),
         )
 
         async def download_file(
@@ -108,7 +109,9 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         await self.scanner.scan_file(MEDIA_PATH)
         self.assertEqual(self.downloader_mock.call_count, 1)
 
-        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        await self.scanner.scan_file(
+            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"width": "50"})
+        )
         self.assertEqual(self.downloader_mock.call_count, 2)
 
     async def test_cache_thumbnail_params(self) -> None:
@@ -116,17 +119,23 @@ class ScannerTestCase(aiounittest.AsyncTestCase):
         parameters are the same.
         """
         # Scan a thumbnail and check that the downloader was called.
-        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        await self.scanner.scan_file(
+            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"width": "50"})
+        )
         self.assertEqual(self.downloader_mock.call_count, 1)
 
         # Scan the thumbnail again and check that the cache result was used (since the
         # downloader was not called)
-        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"width": ["50"]})
+        await self.scanner.scan_file(
+            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"width": "50"})
+        )
         self.assertEqual(self.downloader_mock.call_count, 1)
 
         # Scan a different thumbnail of the same media (with different parameters) and
         # check that the downloader was called.
-        await self.scanner.scan_file(MEDIA_PATH, thumbnail_params={"height": ["50"]})
+        await self.scanner.scan_file(
+            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"height": "50"})
+        )
         self.assertEqual(self.downloader_mock.call_count, 2)
 
     async def test_cache_max_size(self) -> None:

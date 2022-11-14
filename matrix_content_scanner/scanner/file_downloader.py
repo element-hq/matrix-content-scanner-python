@@ -15,12 +15,10 @@ import json
 import logging
 import urllib.parse
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
-from twisted.internet.endpoints import HostnameEndpoint, wrapClientTLS
-from twisted.web.client import Agent, BrowserLikePolicyForHTTPS, ProxyAgent, readBody
-from twisted.web.http_headers import Headers
-from twisted.web.iweb import IAgent, IResponse
+import aiohttp
+from multidict import CIMultiDictProxy, MultiDictProxy
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import (
@@ -49,45 +47,14 @@ class FileDownloader:
 
     def __init__(self, mcs: "MatrixContentScanner"):
         self._base_url = mcs.config.download.base_homeserver_url
-        self._agent = self._get_agent(mcs)
         self._well_known_cache: Dict[str, Optional[str]] = {}
-
-        self._headers: Optional[Headers] = None
-        if mcs.config.download.additional_headers is not None:
-            self._headers = Headers()
-            for name, value in mcs.config.download.additional_headers.items():
-                self._headers.addRawHeader(name, value)
-
-    def _get_agent(self, mcs: "MatrixContentScanner") -> IAgent:
-        """Instantiates the Twisted agent to use to make requests.
-
-        This will be a ProxyAgent if a proxy is configured, and a basic Agent otherwise.
-
-        Args:
-            mcs: The content scanner instance to use to build the agent.
-
-        Returns:
-            The agent to use.
-        """
-        if mcs.config.download.proxy is None:
-            return Agent(mcs.reactor)
-
-        proxy_url = urllib.parse.urlparse(mcs.config.download.proxy.encode("utf-8"))
-
-        endpoint = HostnameEndpoint(mcs.reactor, proxy_url.hostname, proxy_url.port)
-        if proxy_url.scheme == b"https":
-            policy = BrowserLikePolicyForHTTPS()
-            endpoint = wrapClientTLS(
-                policy.creatorForNetloc(proxy_url.hostname, proxy_url.port),
-                endpoint,
-            )
-
-        return ProxyAgent(endpoint, mcs.reactor)
+        self._proxy_url = mcs.config.download.proxy
+        self._headers = mcs.config.download.additional_headers
 
     async def download_file(
         self,
         media_path: str,
-        thumbnail_params: Optional[Dict[str, List[str]]] = None,
+        thumbnail_params: Optional[MultiDictProxy[str]] = None,
     ) -> MediaDescription:
         """Retrieve the file with the given `server_name/media_id` path, and stores it on
         disk.
@@ -101,26 +68,24 @@ class FileDownloader:
             A description of the file (including its full content).
 
         Raises:
-            ContentScannerRestError: The file was not found or could not be downloaded due to an
-                error on the remote homeserver's side.
+            ContentScannerRestError: The file was not found or could not be downloaded due
+                to an error on the remote homeserver's side.
         """
-        url = await self._build_https_url(media_path, thumbnail_params=thumbnail_params)
+        url = await self._build_https_url(media_path)
 
         # Attempt to retrieve the file at the generated URL.
         try:
-            file = await self._get_file_content(url)
+            file = await self._get_file_content(url, thumbnail_params)
         except _PathNotFoundException:
             # If the file could not be found, it might be because the homeserver hasn't
             # been upgraded to a version that supports Matrix v1.1 endpoints yet, so try
             # again with an r0 endpoint.
             logger.info("File not found, trying legacy r0 path")
 
-            url = await self._build_https_url(
-                media_path, endpoint_version="r0", thumbnail_params=thumbnail_params
-            )
+            url = await self._build_https_url(media_path, endpoint_version="r0")
 
             try:
-                file = await self._get_file_content(url)
+                file = await self._get_file_content(url, thumbnail_params)
             except _PathNotFoundException:
                 # If that still failed, raise an error.
                 raise ContentScannerRestError(
@@ -135,7 +100,6 @@ class FileDownloader:
         self,
         media_path: str,
         endpoint_version: str = "v3",
-        thumbnail_params: Optional[Dict[str, List[str]]] = None,
     ) -> str:
         """Turn a `server_name/media_id` path into an https:// one we can use to fetch
         the media.
@@ -147,8 +111,6 @@ class FileDownloader:
             media_path: The media path to translate.
             endpoint_version: The version of the download endpoint to use. As of Matrix
                 v1.1, this is either "v3" or "r0".
-            thumbnail_params: If present, then we want to request and scan a thumbnail
-                generated with the provided parameters instead of the full media.
 
         Returns:
             An https URL to use. If `base_homeserver_url` is set in the config, this
@@ -179,21 +141,6 @@ class FileDownloader:
                 base_url = "https://" + server_name
 
         prefix = self.MEDIA_DOWNLOAD_PREFIX
-        query = None
-        if thumbnail_params is not None:
-            # If there are thumbnail generation parameters, then we want to generate a
-            # thumbnail of the file, not download its full-sized version.
-            prefix = self.MEDIA_THUMBNAIL_PREFIX
-
-            # Reconstruct the query parameters provided by the client.
-            query = ""
-            for key, items in thumbnail_params.items():
-                for item in items:
-                    query += "%s=%s&" % (
-                        urllib.parse.quote(key),
-                        urllib.parse.quote(item),
-                    )
-            query = query[:-1]
 
         # Build the full URL.
         path_prefix = prefix % endpoint_version
@@ -203,17 +150,19 @@ class FileDownloader:
             urllib.parse.quote(server_name),
             urllib.parse.quote(media_id),
         )
-        if query is not None:
-            # If there are query parameters, append them to the URL.
-            url += "?%s" % query
 
         return url
 
-    async def _get_file_content(self, url: str) -> MediaDescription:
+    async def _get_file_content(
+        self,
+        url: str,
+        thumbnail_params: Optional[MultiDictProxy[str]],
+    ) -> MediaDescription:
         """Retrieve the content of the file at a given URL.
 
         Args:
             url: The URL to query.
+            thumbnail_params: Query parameters used if the request is for a thumbnail.
 
         Returns:
             A description of the file (including its full content).
@@ -227,7 +176,7 @@ class FileDownloader:
             ContentScannerRestError: the server returned a non-200 status which cannot
                 meant that the path wasn't understood.
         """
-        code, body, headers = await self._get(url)
+        code, body, headers = await self._get(url, query=thumbnail_params)
 
         logger.info("Remote server responded with %d", code)
 
@@ -256,7 +205,7 @@ class FileDownloader:
 
         # Check that we have the right amount of Content-Type headers (so we don't get
         # confused later when we try comparing it with the file's MIME type).
-        content_type_headers = headers.getRawHeaders("content-type")
+        content_type_headers = headers.getall("content-type", None)
         if content_type_headers is None or len(content_type_headers) != 1:
             raise ContentScannerRestError(
                 HTTPStatus.BAD_GATEWAY,
@@ -283,8 +232,6 @@ class FileDownloader:
 
         Raises:
             WellKnownDiscoveryError if an error happened during the discovery attempt.
-            twisted.internet.error.DNSLookupError if either the domain or the base URL
-                the .well-known client file advertises can't be reached.
         """
         # Check if we already have a result cached, and if so return with it straight
         # away.
@@ -293,8 +240,11 @@ class FileDownloader:
             return self._well_known_cache[domain]
 
         # Attempt to download the .well-known file.
-        url = f"https://{domain}/.well-known/matrix/client"
-        code, body, _ = await self._get(url)
+        try:
+            url = f"https://{domain}/.well-known/matrix/client"
+            code, body, _ = await self._get(url)
+        except ContentScannerRestError:
+            raise WellKnownDiscoveryError(f"Failed to reach web server at {domain}")
 
         if code != 200:
             if code == 404:
@@ -351,11 +301,16 @@ class FileDownloader:
         self._well_known_cache[domain] = base_url
         return base_url
 
-    async def _get(self, url: str) -> Tuple[int, bytes, Headers]:
+    async def _get(
+        self,
+        url: str,
+        query: Optional[MultiDictProxy[str]] = None,
+    ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
         """Sends a GET request to the provided URL.
 
         Args:
             url: The URL to send requests to.
+            query: Optional parameters to use in the request's query string.
 
         Returns:
             The HTTP status code, body and headers the remote server responded with.
@@ -366,11 +321,15 @@ class FileDownloader:
         """
         try:
             logger.info("Sending GET request to %s", url)
-            resp: IResponse = await self._agent.request(
-                b"GET",
-                url.encode("ascii"),
-                self._headers,
-            )
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    proxy=self._proxy_url,
+                    headers=self._headers,
+                    params=query,
+                ) as resp:
+                    return resp.status, await resp.read(), resp.headers
+
         except Exception as e:
             logger.error(e)
             raise ContentScannerRestError(
@@ -378,5 +337,3 @@ class FileDownloader:
                 ErrCode.REQUEST_FAILED,
                 "Failed to reach the remote server",
             )
-
-        return resp.code, await readBody(resp), resp.headers
