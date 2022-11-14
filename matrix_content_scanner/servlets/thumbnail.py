@@ -32,11 +32,6 @@ class ThumbnailHandler:
         """Handles GET requests to .../thumbnail/serverName/mediaId"""
         media_path = request.match_info["media_path"]
 
-        # request.query is a multidict, however this isn't easily
-        thumbnail_params: Dict[str, List[str]] = {}
-        for k in request.query.keys():
-            thumbnail_params[k] = request.query.getall(k)
-
         media = await self._scanner.scan_file(
             media_path=media_path,
             thumbnail_params=request.query,
