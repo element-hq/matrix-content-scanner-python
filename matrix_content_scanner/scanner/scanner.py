@@ -163,7 +163,7 @@ class Scanner:
         cache_key: str,
         media_path: str,
         metadata: Optional[JsonDict] = None,
-        thumbnail_params: Optional[Dict[str, List[str]]] = None,
+        thumbnail_params: Optional[MultiDictProxy[str]] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
