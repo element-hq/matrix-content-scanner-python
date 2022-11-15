@@ -11,10 +11,12 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import hashlib
 import logging
 import os
 import subprocess
+from asyncio import Future
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
@@ -85,6 +87,10 @@ class Scanner:
         # for unencrypted files).
         self._allowed_mimetypes = mcs.config.scan.allowed_mimetypes
 
+        # Cache of futures for files that are currently scanning and downloading, so that
+        # concurrent requests don't cause a file to be downloaded and scanned twice.
+        self._current_scans: Dict[str, Future[MediaDescription]] = {}
+
     async def scan_file(
         self,
         media_path: str,
@@ -99,6 +105,9 @@ class Scanner:
         If the file already has an entry in the result cache, return this value without
         downloading the file again (unless we purposefully did not cache the file's
         content to save up on memory).
+
+        If a file is currently already being downloaded or scanned as a result of another
+        request, don't download it again and use the result from the first request.
 
         Args:
             media_path: The `server_name/media_id` path for the media.
@@ -115,9 +124,72 @@ class Scanner:
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
-        # Compute the cache key for the media.
+        # Compute the key to use when caching, both in the current scans cache and in the
+        # results cache.
         cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
+        if cache_key not in self._current_scans:
+            # Create a future in the context of the current event loop.
+            loop = asyncio.get_event_loop()
+            f = loop.create_future()
+            # Register the future in the current scans cache so that subsequent queries
+            # can use it.
+            self._current_scans[cache_key] = f
+            # Try to download and scan the file.
+            try:
+                res = await self._scan_file(
+                    cache_key, media_path, metadata, thumbnail_params
+                )
+                # Set the future's result, and mark it as done.
+                f.set_result(res)
+                # Return the result.
+                return res
+            except Exception as e:
+                # If there's an exception, catch it, pass it on to the future, and raise
+                # it.
+                f.set_exception(e)
+                # We retrieve the exception from the future, because if we don't and no
+                # other request is awaiting on the future, asyncio complains about "Future
+                # exception was never retrieved".
+                f.exception()
+                raise
+            finally:
+                # Remove the future from the cache.
+                del self._current_scans[cache_key]
 
+        return await self._current_scans[cache_key]
+
+    async def _scan_file(
+        self,
+        cache_key: str,
+        media_path: str,
+        metadata: Optional[JsonDict] = None,
+        thumbnail_params: Optional[MultiDictProxy[str]] = None,
+    ) -> MediaDescription:
+        """Download and scan the given media.
+
+        Unless the scan fails with one of the codes listed in `do_not_cache_exit_codes`,
+        also cache the result.
+
+        If the file already has an entry in the result cache, return this value without
+        downloading the file again (unless we purposefully did not cache the file's
+        content to save up on memory).
+
+        Args:
+            cache_key: The key to use to cache the result of the scan in the result cache.
+            media_path: The `server_name/media_id` path for the media.
+            metadata: The metadata attached to the file (e.g. decryption key), or None if
+                the file isn't encrypted.
+            thumbnail_params: If present, then we want to request and scan a thumbnail
+                generated with the provided parameters instead of the full media.
+
+        Returns:
+            A description of the media.
+
+        Raises:
+            ContentScannerRestError if the file could not be downloaded.
+            FileDirtyError if the result of the scan said that the file is dirty, or if
+                the media path is malformed.
+        """
         # The media to scan.
         media: Optional[MediaDescription] = None
 

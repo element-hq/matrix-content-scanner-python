@@ -11,8 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import copy
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock
 
@@ -302,6 +303,37 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         """Tests that a scan fails if the media path is invalid."""
         with self.assertRaises(FileDirtyError):
             await self.scanner.scan_file(MEDIA_PATH + "/baz")
+
+    async def test_deduplicate_scans(self) -> None:
+        """Tests that if two scan requests come in for the same file and with the same
+        parameter, only one download/scan happens.
+        """
+
+        # Change the Mock's side effect to introduce some delay, to simulate a long
+        # download time. We sleep asynchronously to allow additional scans requests to be
+        # processed.
+        async def _scan_file(*args: Any) -> MediaDescription:
+            await asyncio.sleep(0.2)
+
+            return self.downloader_res
+
+        scan_mock = Mock(side_effect=_scan_file)
+        self.scanner._scan_file = scan_mock  # type: ignore[assignment]
+
+        # Request two scans of the same file at the same time.
+        results = await asyncio.gather(
+            asyncio.create_task(self.scanner.scan_file(MEDIA_PATH)),
+            asyncio.create_task(self.scanner.scan_file(MEDIA_PATH)),
+        )
+
+        # Check that the scanner has only been called once, meaning that the second
+        # call did not trigger a scan.
+        scan_mock.assert_called_once()
+
+        # Check that we got two results, and that we actually got the correct media
+        # description in the second scan.
+        self.assertEqual(len(results), 2, results)
+        self.assertEqual(results[0].content, results[1].content, results)
 
     def _setup_encrypted(self) -> None:
         """Sets up class properties to make the downloader return an encrypted file
