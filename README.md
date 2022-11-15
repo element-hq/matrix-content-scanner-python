@@ -1,7 +1,5 @@
 # Matrix Content Scanner
 
-**Note: this project is a work in progress and is not yet ready for production use.**
-
 A web service for scanning media hosted on a Matrix media repository.
 
 ## Installation
