@@ -23,7 +23,7 @@ jobs:
         id: set-tag
         uses: docker/metadata-action@master
         with:
-          images: matrixdotorg/matrix-content-scanner
+          images: vectorim/matrix-content-scanner
           tags: |
             type=raw,value=latest
             type=pep440,pattern={{raw}}
