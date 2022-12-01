@@ -1,6 +1,6 @@
 /.idea
 /.venv
-/*.egg-info
+*.egg-info
 /.envrc
 /.tox
 _trial_temp
