@@ -8,7 +8,7 @@ RUN apt-get update -qq && apt-get install -qq libmagic1
 
 # Copy the necessary project files into the image.
 COPY setup.cfg pyproject.toml README.md /
-COPY matrix_content_scanner /matrix_content_scanner/
+COPY src /src/
 
 # Install the project and its dependencies, using gitlab.matrix.org as the index. This is
 # so we can get a python-olm wheel, which will have more recent bindings than the current

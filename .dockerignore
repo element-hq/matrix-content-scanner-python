@@ -2,7 +2,7 @@
 *
 
 # things to include
-!matrix_content_scanner
+!src
 !README.md
 !pyproject.toml
 !setup.cfg
