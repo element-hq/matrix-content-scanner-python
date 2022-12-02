@@ -55,7 +55,10 @@ async def simple_cors_middleware(
         # in this case just raises a 405 Method Not Allowed status using an exception.
         # Because we actually want to return a 200 OK with additional headers, we ignore
         # the handler and just return a new response.
-        response = web.StreamResponse(headers=_CORS_HEADERS)
+        response = web.StreamResponse(
+            status=200,
+            headers=_CORS_HEADERS,
+        )
         return response
 
     # Run the request's handler and append CORS headers to it.
