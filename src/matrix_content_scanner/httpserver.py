@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Awaitable
 
 from aiohttp import web
 
@@ -26,7 +26,44 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_media_path_regexp = r"/{media_path:.+}"
+_MEDIA_PATH_REGEXP = r"/{media_path:.+}"
+
+_CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+}
+
+
+@web.middleware
+async def simple_cors_middleware(
+    request: web.Request,
+    handler: Callable[[web.Request], Awaitable[web.Response]],
+) -> web.Response:
+    """A simple aiohttp middleware that adds CORS headers to responses, and handles
+    OPTIONS requests.
+
+    Args:
+        request: The request to handle.
+        handler: The handler for this request.
+
+    Returns:
+        A response with CORS headers.
+    """
+    if request.method == "OPTIONS":
+        # We don't register routes for OPTIONS requests, therefore the handler we're given
+        # in this case just raises a 405 Method Not Allowed status using an exception.
+        # Because we actually want to return a 200 OK with additional headers, we ignore
+        # the handler and just return a new response.
+        response = web.Response(
+            headers=_CORS_HEADERS
+        )
+        return response
+
+    # Run the request's handler and append CORS headers to it.
+    response = await handler(request)
+    response.headers.update(_CORS_HEADERS)
+    return response
 
 
 class HTTPServer:
@@ -53,14 +90,14 @@ class HTTPServer:
 
         app.add_routes(
             [
-                web.get("/scan" + _media_path_regexp, scan_handler.handle_plain),
+                web.get("/scan" + _MEDIA_PATH_REGEXP, scan_handler.handle_plain),
                 web.post("/scan_encrypted", scan_handler.handle_encrypted),
                 web.get(
-                    "/download" + _media_path_regexp, download_handler.handle_plain
+                    "/download" + _MEDIA_PATH_REGEXP, download_handler.handle_plain
                 ),
                 web.post("/download_encrypted", download_handler.handle_encrypted),
                 web.get(
-                    "/thumbnail" + _media_path_regexp,
+                    "/thumbnail" + _MEDIA_PATH_REGEXP,
                     thumbnail_handler.handle_thumbnail,
                 ),
                 web.get(
@@ -73,9 +110,13 @@ class HTTPServer:
         # Then we create a root application, and define the app we previously created as
         # a subapp on the base path for the content scanner API.
         root = web.Application(
-            # Apply the "normalize path" middleware to handle trailing slashes. This will
-            # also apply the middleware to subapps.
-            middlewares=[web.normalize_path_middleware()],
+            # Apply middlewares. This will also apply to subapps.
+            middlewares=[
+                # Handle trailing slashes.
+                web.normalize_path_middleware(),
+                # Handler CORS.
+                simple_cors_middleware,
+            ],
         )
         root.add_subapp("/_matrix/media_proxy/unstable", app)
 
