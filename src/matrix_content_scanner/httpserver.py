@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 import logging
-from typing import TYPE_CHECKING, Callable, Awaitable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from aiohttp import web
 
@@ -55,9 +55,7 @@ async def simple_cors_middleware(
         # in this case just raises a 405 Method Not Allowed status using an exception.
         # Because we actually want to return a 200 OK with additional headers, we ignore
         # the handler and just return a new response.
-        response = web.Response(
-            headers=_CORS_HEADERS
-        )
+        response = web.Response(headers=_CORS_HEADERS)
         return response
 
     # Run the request's handler and append CORS headers to it.
