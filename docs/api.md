@@ -57,7 +57,7 @@ unsuccessful, an error is sent with the reason `MCS_MEDIA_NOT_CLEAN`.
 
 ### `GET /_matrix/media_proxy/unstable/scan/{serverName}/{mediaId}`
 
-Downloads a thumbnail of the media at `mxc://{serverName}/{mediaId}`, scans it and
+Downloads the media at `mxc://{serverName}/{mediaId}`, scans it and
 responds with the result of the scan.
 
 Response format:
