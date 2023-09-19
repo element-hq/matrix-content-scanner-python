@@ -92,7 +92,10 @@ _config_schema = {
             "properties": {
                 "base_homeserver_url": {"type": "string"},
                 "proxy": {"type": "string"},
-                "allowed_mimetypes": {"type": "object"},
+                "additional_headers": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
             },
         },
         "crypto": {
