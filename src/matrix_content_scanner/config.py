@@ -92,7 +92,7 @@ _config_schema = {
             "properties": {
                 "base_homeserver_url": {"type": "string"},
                 "proxy": {"type": "string"},
-                "additional_headers" {
+                "additional_headers": {
                     "type": "object",
                     "additionalProperties": {"type": "string"},
                 },
