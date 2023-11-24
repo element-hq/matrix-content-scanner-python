@@ -89,8 +89,8 @@ class FileDownloader:
             except _PathNotFoundException:
                 # If that still failed, raise an error.
                 raise ContentScannerRestError(
-                    http_status=HTTPStatus.BAD_GATEWAY,
-                    reason=ErrCode.REQUEST_FAILED,
+                    http_status=HTTPStatus.NOT_FOUND,
+                    reason=ErrCode.NOT_FOUND,
                     info="File not found",
                 )
 
