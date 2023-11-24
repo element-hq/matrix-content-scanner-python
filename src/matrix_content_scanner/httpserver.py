@@ -130,8 +130,5 @@ class HTTPServer:
             app=self._app,
             host=self._bind_address,
             port=self._bind_port,
-            # We need to ignore mypy's error here because what we do here is correct
-            # according to aiohttp's documentation.
-            # See https://github.com/aio-libs/aiohttp/issues/7077
-            print=None,  # type: ignore[arg-type]
+            print=None,
         )

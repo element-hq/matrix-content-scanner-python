@@ -52,7 +52,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         # Mock download_file so we don't actually try to download files.
         mcs = get_content_scanner()
-        mcs.file_downloader.download_file = self.downloader_mock  # type: ignore[assignment]
+        mcs.file_downloader.download_file = self.downloader_mock  # type: ignore[method-assign]
         self.scanner = mcs.scanner
 
     async def test_scan(self) -> None:
@@ -161,7 +161,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         """
         # Mock the _run_scan command so we can keep track of its call count.
         mock_runner = Mock(return_value=0)
-        self.scanner._run_scan = mock_runner  # type: ignore[assignment]
+        self.scanner._run_scan = mock_runner  # type: ignore[method-assign]
 
         # Calculate the cache key for this file so we can look it up later.
         cache_key = self.scanner._get_cache_key_for_file(MEDIA_PATH, None, None)
@@ -269,7 +269,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         # It's tricky to give a value to `scanner._script` that makes `_run_scan` return 5
         # directly, so we just mock it here.
         run_scan_mock = Mock(return_value=5)
-        self.scanner._run_scan = run_scan_mock  # type: ignore[assignment]
+        self.scanner._run_scan = run_scan_mock  # type: ignore[method-assign]
 
         # Scan the file, we'll check later that it wasn't cached.
         with self.assertRaises(FileDirtyError):
@@ -318,7 +318,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
             return self.downloader_res
 
         scan_mock = Mock(side_effect=_scan_file)
-        self.scanner._scan_file = scan_mock  # type: ignore[assignment]
+        self.scanner._scan_file = scan_mock  # type: ignore[method-assign]
 
         # Request two scans of the same file at the same time.
         results = await asyncio.gather(
