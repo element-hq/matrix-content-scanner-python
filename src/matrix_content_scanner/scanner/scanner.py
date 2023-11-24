@@ -27,7 +27,7 @@ from humanfriendly import format_size
 from mautrix.crypto.attachments import decrypt_attachment
 from mautrix.errors import DecryptionError
 from mautrix.util import magic
-from multidict import MultiDictProxy
+from multidict import MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
@@ -95,7 +95,7 @@ class Scanner:
         self,
         media_path: str,
         metadata: Optional[JsonDict] = None,
-        thumbnail_params: Optional[MultiDictProxy[str]] = None,
+        thumbnail_params: Optional["MultiMapping[str]"] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
@@ -163,7 +163,7 @@ class Scanner:
         cache_key: str,
         media_path: str,
         metadata: Optional[JsonDict] = None,
-        thumbnail_params: Optional[MultiDictProxy[str]] = None,
+        thumbnail_params: Optional[MultiMapping[str]] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
@@ -368,7 +368,7 @@ class Scanner:
         self,
         media_path: str,
         metadata: Optional[JsonDict],
-        thumbnail_params: Optional[MultiDictProxy[str]],
+        thumbnail_params: Optional[MultiMapping[str]],
     ) -> str:
         """Generates the key to use to store the result for the given media in the result
         cache.

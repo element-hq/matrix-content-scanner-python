@@ -18,7 +18,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import aiohttp
-from multidict import CIMultiDictProxy, MultiDictProxy
+from multidict import CIMultiDictProxy, MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import (
@@ -54,7 +54,7 @@ class FileDownloader:
     async def download_file(
         self,
         media_path: str,
-        thumbnail_params: Optional[MultiDictProxy[str]] = None,
+        thumbnail_params: Optional[MultiMapping[str]] = None,
     ) -> MediaDescription:
         """Retrieve the file with the given `server_name/media_id` path, and stores it on
         disk.
@@ -156,7 +156,7 @@ class FileDownloader:
     async def _get_file_content(
         self,
         url: str,
-        thumbnail_params: Optional[MultiDictProxy[str]],
+        thumbnail_params: Optional[MultiMapping[str]],
     ) -> MediaDescription:
         """Retrieve the content of the file at a given URL.
 
@@ -304,7 +304,7 @@ class FileDownloader:
     async def _get(
         self,
         url: str,
-        query: Optional[MultiDictProxy[str]] = None,
+        query: Optional[MultiMapping[str]] = None,
     ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
         """Sends a GET request to the provided URL.
 
