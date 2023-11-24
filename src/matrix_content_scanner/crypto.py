@@ -65,7 +65,7 @@ class CryptoHandler:
             )
 
             # Generate a new key pair and turns it into a pickle.
-            self._decryptor = PkDecryption()
+            self._decryptor = PkDecryption()  # type: ignore[no-untyped-call]
             pickle_bytes = self._decryptor.pickle(passphrase=key)
 
             # Try to write the pickle's content into a file.
