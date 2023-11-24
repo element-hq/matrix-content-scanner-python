@@ -64,7 +64,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
 
         # Mock _get so we don't actually try to download files.
         self.get_mock = Mock(side_effect=_get)
-        self.downloader._get = self.get_mock  # type: ignore[assignment]
+        self.downloader._get = self.get_mock  # type: ignore[method-assign]
 
     async def test_download(self) -> None:
         """Tests that downloading a file works."""
@@ -230,7 +230,7 @@ class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
 
         # Mock _get so we don't actually try to download files.
         self.get_mock = Mock(side_effect=_get)
-        self.downloader._get = self.get_mock  # type: ignore[assignment]
+        self.downloader._get = self.get_mock  # type: ignore[method-assign]
 
     async def test_discover(self) -> None:
         """Checks that the base URL to use to download files can be discovered via
