@@ -30,9 +30,7 @@ def setup_custom_factory() -> None:
 
     def _factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
         record = old_factory(*args, **kwargs)
-        # Define custom attributes on the records. We need to ignore the types here
-        # because otherwise mypy complains the attributes aren't defined on LogRecord.
-        record.request_id = request_id.get(None)  # type: ignore[attr-defined]
+        record.request_id = request_id.get(None)
         return record
 
     logging.setLogRecordFactory(_factory)
