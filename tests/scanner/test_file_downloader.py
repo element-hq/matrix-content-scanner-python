@@ -124,7 +124,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(MEDIA_PATH)
 
-        self.assertEqual(cm.exception.http_status, 502)
+        self.assertEqual(cm.exception.http_status, 404)
         self.assertEqual(cm.exception.info, "File not found")
 
         # Check that we sent out two requests: one to the v3 path and one to the r0 path.
