@@ -482,8 +482,20 @@ class Scanner:
             The exit code the script returned.
         """
         async with self._current_scan_semaphore:
-            process = await asyncio.create_subprocess_exec(self._script, file_name)
+            process = await asyncio.create_subprocess_exec(
+                self._script, file_name, stderr=asyncio.subprocess.PIPE
+            )
+            _, stderr = await process.communicate()
             retcode = await process.wait()
+            if retcode == 0:
+                logger.info("Scan succeeded")
+            else:
+                logger.info(
+                    "Scanning failed with exit code %d. Stderr: %s",
+                    retcode,
+                    stderr.decode(),
+                )
+
             return retcode
 
     def _check_mimetype(
