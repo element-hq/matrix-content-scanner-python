@@ -478,13 +478,9 @@ class Scanner:
         Returns:
             The exit code the script returned.
         """
-        try:
-            subprocess.run([self._script, file_name], check=True)
-            logger.info("Scan succeeded")
-            return 0
-        except subprocess.CalledProcessError as e:
-            logger.info("Scan failed with exit code %d: %s", e.returncode, e.stderr)
-            return e.returncode
+        process = await asyncio.create_subprocess_exec(self._script, file_name)
+        await process.wait()
+        return process.returncode
 
     def _check_mimetype(
         self,
