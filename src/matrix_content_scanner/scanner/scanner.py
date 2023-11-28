@@ -341,7 +341,7 @@ class Scanner:
         file_path = self._write_file_to_disk(media_path, media_content)
 
         # Scan the file and see if the result is positive or negative.
-        exit_code = self._run_scan(file_path)
+        exit_code = await self._run_scan(file_path)
         result = exit_code == 0
 
         # If the exit code isn't part of the ones we should ignore, cache the result.
@@ -469,7 +469,7 @@ class Scanner:
 
         return str(full_path)
 
-    def _run_scan(self, file_name: str) -> int:
+    async def _run_scan(self, file_name: str) -> int:
         """Runs the scan script, passing it the given file name.
 
         Args:

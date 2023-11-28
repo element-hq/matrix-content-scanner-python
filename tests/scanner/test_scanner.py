@@ -15,7 +15,7 @@ import asyncio
 import copy
 from typing import Any, Dict, List, Optional
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 from multidict import CIMultiDict, CIMultiDictProxy
 
@@ -160,7 +160,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         match the hash of the newly downloaded content.
         """
         # Mock the _run_scan command so we can keep track of its call count.
-        mock_runner = Mock(return_value=0)
+        mock_runner = AsyncMock(return_value=0)
         self.scanner._run_scan = mock_runner  # type: ignore[method-assign]
 
         # Calculate the cache key for this file so we can look it up later.
@@ -268,7 +268,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         # It's tricky to give a value to `scanner._script` that makes `_run_scan` return 5
         # directly, so we just mock it here.
-        run_scan_mock = Mock(return_value=5)
+        run_scan_mock = AsyncMock(return_value=5)
         self.scanner._run_scan = run_scan_mock  # type: ignore[method-assign]
 
         # Scan the file, we'll check later that it wasn't cached.
