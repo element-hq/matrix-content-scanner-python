@@ -479,8 +479,8 @@ class Scanner:
             The exit code the script returned.
         """
         process = await asyncio.create_subprocess_exec(self._script, file_name)
-        await process.wait()
-        return process.returncode
+        retcode = await process.wait()
+        return retcode
 
     def _check_mimetype(
         self,
