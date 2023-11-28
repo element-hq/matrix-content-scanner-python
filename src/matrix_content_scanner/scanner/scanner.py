@@ -91,6 +91,9 @@ class Scanner:
         # concurrent requests don't cause a file to be downloaded and scanned twice.
         self._current_scans: Dict[str, Future[MediaDescription]] = {}
 
+        # Limit the number of concurrent scans.
+        self._current_scan_semaphore = asyncio.Semaphore(100)
+
     async def scan_file(
         self,
         media_path: str,
@@ -478,9 +481,10 @@ class Scanner:
         Returns:
             The exit code the script returned.
         """
-        process = await asyncio.create_subprocess_exec(self._script, file_name)
-        retcode = await process.wait()
-        return retcode
+        async with self._current_scan_semaphore:
+            process = await asyncio.create_subprocess_exec(self._script, file_name)
+            retcode = await process.wait()
+            return retcode
 
     def _check_mimetype(
         self,
