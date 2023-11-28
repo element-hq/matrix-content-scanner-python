@@ -13,6 +13,8 @@ enough for now.)
 We wait for the content scanner to finish responding to reach response, reading the
 response bodies from the scanner. We print how long (wall clock) it took to do so,
 and close the content scanner subprocess.
+
+Invoke this script with `-v` to print out content scanner logs.
 """
 
 import asyncio
@@ -221,7 +223,9 @@ async def request_media(session: aiohttp.ClientSession, media_url: str) -> int:
     # timeout = aiohttp.ClientTimeout(total=10)
     async with session.get(url) as response:
         await response.read()
-        print(".", end="", flush=True)
+        if "-v" not in sys.argv:
+            # Simple progress meter
+            print(".", end="", flush=True)
 
         return response.status
 
@@ -244,8 +248,8 @@ async def main() -> None:
             ],
             cwd=perfdir,
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=None if "-v" in sys.argv else subprocess.DEVNULL,
+            stderr=None if "-v" in sys.argv else subprocess.DEVNULL,
         )
 
         # Give server time to startup
