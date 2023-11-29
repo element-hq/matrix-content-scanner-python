@@ -8,6 +8,7 @@
 set -e
 
 files=(
+  "perf"
   "src"
   "tests"
 )

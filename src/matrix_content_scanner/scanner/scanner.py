@@ -91,6 +91,9 @@ class Scanner:
         # concurrent requests don't cause a file to be downloaded and scanned twice.
         self._current_scans: Dict[str, Future[MediaDescription]] = {}
 
+        # Limit the number of concurrent scans.
+        self._current_scan_semaphore = asyncio.Semaphore(100)
+
     async def scan_file(
         self,
         media_path: str,
@@ -341,7 +344,7 @@ class Scanner:
         file_path = self._write_file_to_disk(media_path, media_content)
 
         # Scan the file and see if the result is positive or negative.
-        exit_code = self._run_scan(file_path)
+        exit_code = await self._run_scan(file_path)
         result = exit_code == 0
 
         # If the exit code isn't part of the ones we should ignore, cache the result.
@@ -469,7 +472,7 @@ class Scanner:
 
         return str(full_path)
 
-    def _run_scan(self, file_name: str) -> int:
+    async def _run_scan(self, file_name: str) -> int:
         """Runs the scan script, passing it the given file name.
 
         Args:
@@ -478,13 +481,22 @@ class Scanner:
         Returns:
             The exit code the script returned.
         """
-        try:
-            subprocess.run([self._script, file_name], check=True)
-            logger.info("Scan succeeded")
-            return 0
-        except subprocess.CalledProcessError as e:
-            logger.info("Scan failed with exit code %d: %s", e.returncode, e.stderr)
-            return e.returncode
+        async with self._current_scan_semaphore:
+            process = await asyncio.create_subprocess_exec(
+                self._script, file_name, stderr=asyncio.subprocess.PIPE
+            )
+            _, stderr = await process.communicate()
+            retcode = await process.wait()
+            if retcode == 0:
+                logger.info("Scan succeeded")
+            else:
+                logger.info(
+                    "Scanning failed with exit code %d. Stderr: %s",
+                    retcode,
+                    stderr.decode(),
+                )
+
+            return retcode
 
     def _check_mimetype(
         self,

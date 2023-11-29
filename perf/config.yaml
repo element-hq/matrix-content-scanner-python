@@ -1,0 +1,11 @@
+web:
+  host: localhost
+  port: 8080
+scan:
+  script: ./dummy_scan.sh
+  temp_directory: temp
+crypto:
+  pickle_path: pickle_path
+  pickle_key: pickle_key
+download:
+  base_homeserver_url: https://matrix-client.matrix.org
