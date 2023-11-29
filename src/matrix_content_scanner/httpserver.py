@@ -67,6 +67,31 @@ async def simple_cors_middleware(
     return response
 
 
+@web.middleware
+async def json_errors_middleware(
+    request: web.Request,
+    handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+) -> web.StreamResponse:
+    """A simple aiohttp middleware that converts 404/405 errors into Matrix JSON error.
+
+    Args:
+        request: The request to handle.
+        handler: The handler for this request.
+
+    Returns:
+        The original response OR a JSON error response.
+    """
+    # Run the request's handler and append CORS headers to it.
+    try:
+        return await handler(request)
+    except (web.HTTPNotFound, web.HTTPMethodNotAllowed) as ex:
+        # Return the proper JSON response.
+        return web.json_response(
+            {"errcode": "M_UNRECOGNIZED", "error": "Unrecognized request"},
+            status=ex.status,
+        )
+
+
 class HTTPServer:
     def __init__(self, mcs: "MatrixContentScanner"):
         self._mcs = mcs
@@ -117,6 +142,8 @@ class HTTPServer:
                 web.normalize_path_middleware(),
                 # Handler CORS.
                 simple_cors_middleware,
+                # Convert unknown routes/methods into JSON errors.
+                json_errors_middleware,
             ],
         )
         root.add_subapp("/_matrix/media_proxy/unstable", app)
