@@ -21,7 +21,11 @@ from multidict import CIMultiDict, CIMultiDictProxy
 
 from matrix_content_scanner.scanner.scanner import CacheEntry
 from matrix_content_scanner.utils.constants import ErrCode
-from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
+from matrix_content_scanner.utils.errors import (
+    ContentScannerRestError,
+    FileDirtyError,
+    FileMimeTypeForbiddenError,
+)
 from matrix_content_scanner.utils.types import MediaDescription
 from tests.testutils import (
     ENCRYPTED_FILE_METADATA,
@@ -231,7 +235,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         self.scanner._allowed_mimetypes = ["image/jpeg"]
 
         # Check that the scan fails since the file is a PNG.
-        with self.assertRaises(FileDirtyError):
+        with self.assertRaises(FileMimeTypeForbiddenError):
             await self.scanner.scan_file(MEDIA_PATH)
 
     async def test_mimetype_encrypted(self) -> None:
@@ -244,7 +248,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         self.scanner._allowed_mimetypes = ["image/jpeg"]
 
         # Check that the scan fails since the file is a PNG.
-        with self.assertRaises(FileDirtyError):
+        with self.assertRaises(FileMimeTypeForbiddenError):
             await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
 
     async def test_mimetype_content_type_mismatch(self) -> None:
