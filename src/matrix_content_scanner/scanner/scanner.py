@@ -30,7 +30,11 @@ from mautrix.util import magic
 from multidict import MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
-from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
+from matrix_content_scanner.utils.errors import (
+    ContentScannerRestError,
+    FileDirtyError,
+    FileMimeTypeForbiddenError,
+)
 from matrix_content_scanner.utils.types import JsonDict, MediaDescription
 
 if TYPE_CHECKING:
@@ -544,4 +548,6 @@ class Scanner:
                 "MIME type for file is forbidden: %s",
                 detected_mimetype,
             )
-            raise FileDirtyError("File type not supported")
+            raise FileMimeTypeForbiddenError(
+                f"File type: {detected_mimetype} not allowed"
+            )

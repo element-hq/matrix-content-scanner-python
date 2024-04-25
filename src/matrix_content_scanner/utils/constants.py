@@ -30,3 +30,5 @@ class ErrCode(str, Enum):
     FAILED_TO_DECRYPT = "MCS_MEDIA_FAILED_TO_DECRYPT"
     # The request body isn't valid JSON, or is missing a required parameter.
     MALFORMED_JSON = "MCS_MALFORMED_JSON"
+    # The Mime type is not in the allowed list of Mime types.
+    MIME_TYPE_FORBIDDEN = "MCS_MIME_TYPE_FORBIDDEN"
