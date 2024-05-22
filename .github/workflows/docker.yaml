@@ -8,11 +8,15 @@ on:
 
 permissions:
   contents: read
+  id-token: write # needed for signing the images with GitHub OIDC Token
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Log in to DockerHub
         uses: docker/login-action@v2
         with:
@@ -29,6 +33,7 @@ jobs:
             type=pep440,pattern={{raw}}
 
       - name: Build and push all platforms
+        id: build-and-push
         uses: docker/build-push-action@v3
         with:
           push: true
@@ -36,3 +41,14 @@ jobs:
           tags: "${{ steps.set-tag.outputs.tags }}"
           file: "docker/Dockerfile"
           platforms: linux/amd64
+
+      - name: Sign the images with GitHub OIDC Token
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          TAGS: ${{ steps.set-tag.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
