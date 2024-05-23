@@ -7,3 +7,7 @@ _trial_temp
 __pycache__
 /dist
 config.yaml
+/build
+/.vscode
+mcs_pickle.txt
+pickle
