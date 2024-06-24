@@ -247,19 +247,6 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         with self.assertRaises(FileDirtyError):
             await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
 
-    async def test_mimetype_content_type_mismatch(self) -> None:
-        """Tests that a scan fails if the detected MIME type does not match the value of
-        the Content-Type header sent by the homeserver.
-        """
-        # Set up the file description to make it look as if the homeserver tried to tell
-        # us the file is a JPEG (even though it's actually a PNG).
-        self.downloader_res.content_type = "image/jpeg"
-
-        # Check that the scan fails since the file's detected MIME type doesn't match the
-        # value of the Content-Type header.
-        with self.assertRaises(FileDirtyError):
-            await self.scanner.scan_file(MEDIA_PATH)
-
     async def test_dont_cache_exit_codes(self) -> None:
         """Tests that if the configuration specifies exit codes to ignore when running
         the scanning script, we don't cache them.
