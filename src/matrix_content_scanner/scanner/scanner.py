@@ -493,7 +493,7 @@ class Scanner:
 
             return retcode
 
-    def _check_mimetype(self,media_content: bytes) -> None:
+    def _check_mimetype(self, media_content: bytes) -> None:
         """Detects the MIME type of the provided bytes, and checks that this type is allowed
         (if an allow list is provided in the configuration)
         Args:
