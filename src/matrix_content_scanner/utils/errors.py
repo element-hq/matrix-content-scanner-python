@@ -49,6 +49,17 @@ class FileDirtyError(ContentScannerRestError):
         self.cacheable = cacheable
 
 
+class FileMimeTypeForbiddenError(ContentScannerRestError):
+    """An error indicating that the file's MIME type is forbidden."""
+
+    def __init__(self, info: Optional[str]) -> None:
+        super(FileMimeTypeForbiddenError, self).__init__(
+            http_status=403,
+            reason=ErrCode.MIME_TYPE_FORBIDDEN,
+            info=info,
+        )
+
+
 class ConfigError(Exception):
     """An error indicating an issue with the configuration file."""
 
