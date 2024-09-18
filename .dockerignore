@@ -6,5 +6,10 @@
 !README.md
 !pyproject.toml
 !setup.cfg
+!poetry.lock
+!Cargo.toml
+!Cargo.lock
+!build_rust.py
+!rust
 
 **/__pycache__

@@ -21,7 +21,7 @@ from aiohttp import web
 from multidict import CIMultiDictProxy
 
 from matrix_content_scanner import logutils
-from matrix_content_scanner.crypto import CryptoHandler
+from matrix_content_scanner.mcs_rust import crypto
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.encrypted_file_metadata import (
     validate_encrypted_file_metadata,
@@ -152,7 +152,7 @@ def _to_json_bytes(content: JsonDict) -> bytes:
 
 async def get_media_metadata_from_request(
     request: web.Request,
-    crypto_handler: CryptoHandler,
+    crypto_handler: crypto.CryptoHandler,
 ) -> Tuple[str, JsonDict]:
     """Extracts, optionally decrypts, and validates encrypted file metadata from a
     request body.
@@ -189,7 +189,9 @@ async def get_media_metadata_from_request(
     return media_path, metadata
 
 
-def _metadata_from_body(body: JsonDict, crypto_handler: CryptoHandler) -> JsonDict:
+def _metadata_from_body(
+    body: JsonDict, crypto_handler: crypto.CryptoHandler
+) -> JsonDict:
     """Parse the given body as JSON, and decrypts it if needed.
 
     Args:
@@ -218,8 +220,19 @@ def _metadata_from_body(body: JsonDict, crypto_handler: CryptoHandler) -> JsonDi
         return body
 
     # If it is encrypted, decrypt it and return the decrypted version.
-    return crypto_handler.decrypt_body(
-        ciphertext=encrypted_body["ciphertext"],
-        mac=encrypted_body["mac"],
-        ephemeral=encrypted_body["ephemeral"],
-    )
+    try:
+        decrypted: JsonDict = json.loads(
+            crypto_handler.decrypt_body(
+                ciphertext=encrypted_body["ciphertext"],
+                mac=encrypted_body["mac"],
+                ephemeral=encrypted_body["ephemeral"],
+            )
+        )
+        return decrypted
+    except Exception as e:
+        logger.exception("Failed to decrypt encrypted body")
+        raise ContentScannerRestError(
+            http_status=400,
+            reason=ErrCode.FAILED_TO_DECRYPT,
+            info=str(e),
+        )

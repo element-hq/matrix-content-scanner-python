@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core", "wheel", "setuptools-rust"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 profile = "black"
@@ -8,3 +8,73 @@ known_first_party = [
     "src",
     "tests"
 ]
+
+[tool.maturin]
+manifest-path = "rust/Cargo.toml"
+module-name = "matrix_content_scanner.mcs_rust"
+
+[tool.poetry]
+name = "matrix_content_scanner"
+version = "1.0.8"
+description = "A web service for scanning media hosted by a Matrix media repository"
+authors = ["Element Backend Team <team-backend-synapse@element.io>"]
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Private :: Do Not Upload",
+]
+include = [
+    { path = "mypy.ini", format = "sdist" },
+    { path = "scripts-dev", format = "sdist" },
+    { path = "tests", format = "sdist" },
+    { path = "Cargo.toml", format = "sdist" },
+    { path = "Cargo.lock", format = "sdist" },
+    { path = "rust/Cargo.toml", format = "sdist" },
+    { path = "rust/build.rs", format = "sdist" },
+    { path = "rust/src/**", format = "sdist" },
+]
+exclude = [
+    { path = "src/*.so", format = "sdist"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.10.0"
+attrs = ">=19.2.0"
+aiohttp = ">=3.8.0"
+jsonschema = ">=4.23.0"
+pyyaml = ">=5.1.1"
+# Required for decrypting files"
+python-magic = ">=0.4.15,<0.5"
+# Required for maintaining the result cache.
+cachetools = ">=5.4.0"
+# Required for processing user-defined values such as durations or sizes.
+humanfriendly = ">=10.0"
+# Required for calculating cache keys deterministically. Type annotations aren't
+# discoverable in versions older than 1.6.3.
+canonicaljson = ">=1.6.3"
+setuptools_rust = ">=1.3"
+
+[tool.poetry.dev-dependencies]
+# for linting
+isort = ">=5.10.1"
+black = ">=22.7.0"
+flake8 = ">=4.0.1"
+# for type checking
+mypy = "*"
+types-jsonschema = ">=3.2.0"
+types-PyYAML = ">=5.4.10"
+types-cachetools = "*"
+types-humanfriendly = "*"
+
+[tool.poetry.build]
+script = "build_rust.py"
+generate-setup-file = true
+
+[tool.poetry.urls]
+homepage = "https://github.com/element-hq/matrix-content-scanner"
+documentation = "https://github.com/element-hq/matrix-content-scanner/blob/main/README.md"
+repository = "https://github.com/element-hq/matrix-content-scanner.git"
+
+[tool.poetry.scripts]
+matrix-content-scanner = "matrix_content_scanner.mcs:main"

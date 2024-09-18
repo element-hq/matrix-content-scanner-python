@@ -14,8 +14,6 @@
 import json
 import unittest
 
-from olm.pk import PkEncryption
-
 from tests.testutils import get_content_scanner
 
 
@@ -28,14 +26,17 @@ class CryptoHandlerTestCase(unittest.TestCase):
         payload = {"foo": "bar"}
 
         # Encrypt the payload with PkEncryption.
-        pke = PkEncryption(self.crypto_handler.public_key)
-        encrypted = pke.encrypt(json.dumps(payload))
+        encrypted = self.crypto_handler.encrypt(
+            self.crypto_handler.public_key, json.dumps(payload)
+        )
 
         # Decrypt the payload with the crypto handler.
-        decrypted = self.crypto_handler.decrypt_body(
-            encrypted.ciphertext,
-            encrypted.mac,
-            encrypted.ephemeral_key,
+        decrypted = json.loads(
+            get_content_scanner().crypto_handler.decrypt_body(
+                encrypted.ciphertext,
+                encrypted.mac,
+                encrypted.ephemeral_key,
+            )
         )
 
         # Check that the decrypted payload is the same as the original one before

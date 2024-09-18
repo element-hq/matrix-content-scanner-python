@@ -159,7 +159,7 @@ than the one hosting the Matrix Content Scanner, it might be a concern that othe
 of the infrastructure might be able to intercept this traffic and decrypt the attachment.
 
 The second way of communicating encrypted file metadata is to first encrypt it using
-libolm's [`PkEncryption`](https://gitlab.matrix.org/matrix-org/olm/-/blob/master/javascript/olm_pk.js#L1)
+vodozemac's [`PkEncryption`](https://github.com/matrix-org/vodozemac/blob/poljar/pk-dekurcina/src/pk_encryption.rs#L97)
 class. This is done using the public key retrieved from
 `GET /_matrix/media_proxy/unstable/public_key` and sending the resulting encrypted message
 in an `encrypted_body` parameter of the request's body. This parameter follows this format:

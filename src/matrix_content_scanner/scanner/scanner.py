@@ -21,14 +21,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import attr
+import magic
 from cachetools import TTLCache
 from canonicaljson import encode_canonical_json
 from humanfriendly import format_size
-from mautrix.crypto.attachments import decrypt_attachment
-from mautrix.errors import DecryptionError
-from mautrix.util import magic
 from multidict import MultiMapping
 
+from matrix_content_scanner.mcs_rust import crypto
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import (
     ContentScannerRestError,
@@ -420,20 +419,14 @@ class Scanner:
         """
         logger.info("Decrypting encrypted file")
 
-        # At this point the schema should have been validated so we can pull these values
-        # out safely.
-        key = metadata["file"]["key"]["k"]
-        hash = metadata["file"]["hashes"]["sha256"]
-        iv = metadata["file"]["iv"]
-
         # Decrypt the file.
         try:
-            return decrypt_attachment(body, key, hash, iv)
-        except DecryptionError as e:
+            return crypto.decrypt_attachment(body, metadata["file"])
+        except Exception as e:
             raise ContentScannerRestError(
                 http_status=400,
                 reason=ErrCode.FAILED_TO_DECRYPT,
-                info=e.message,
+                info=str(e),
             )
 
     def _write_file_to_disk(self, media_path: str, body: bytes) -> str:
@@ -506,7 +499,7 @@ class Scanner:
         Raises:
             FileDirtyError if one of the checks fail.
         """
-        detected_mimetype = magic.mimetype(media_content)
+        detected_mimetype = magic.from_buffer(media_content, mime=True)
         logger.debug("Detected MIME type for file is %s", detected_mimetype)
 
         # If there's an allow list for MIME types, check that the MIME type that's been

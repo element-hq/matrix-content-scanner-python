@@ -11,3 +11,10 @@ config.yaml
 /.vscode
 mcs_pickle.txt
 pickle
+
+# Poetry will create a setup.py, which we don't want to include.
+/setup.py
+
+# rust
+/target/
+/src/matrix_content_scanner/*.so
