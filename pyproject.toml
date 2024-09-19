@@ -15,7 +15,7 @@ module-name = "matrix_content_scanner.mcs_rust"
 
 [tool.poetry]
 name = "matrix_content_scanner"
-version = "1.0.8"
+version = "1.1.0"
 description = "A web service for scanning media hosted by a Matrix media repository"
 authors = ["Element Backend Team <team-backend-synapse@element.io>"]
 readme = "README.md"
