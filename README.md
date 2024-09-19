@@ -4,11 +4,10 @@ A web service for scanning media hosted on a Matrix media repository.
 
 ## Installation
 
-This project requires libolm development headers, as well as libmagic to be installed on
-the system. On Debian/Ubuntu:
+This project requires libmagic to be installed on the system. On Debian/Ubuntu:
 
 ```commandline
-sudo apt install libolm-dev libmagic1
+sudo apt install libmagic1
 ```
 
 Then, preferably in a virtual environment, install the Matrix Content Scanner:
@@ -76,18 +75,14 @@ be created automatically.
 
 ## Development
 
-In a virtual environment with pip ≥ 21.1, run
+In a virtual environment with poetry (>=1.8.3) installed, run
 ```shell
-pip install -e .[dev]
+poetry install
 ```
 
-To run the unit tests, you can either use:
+To run the unit tests, you can use:
 ```shell
 tox -e py
-```
-or
-```shell
-trial tests
 ```
 
 To run the linters and `mypy` type checker, use `./scripts-dev/lint.sh`.
