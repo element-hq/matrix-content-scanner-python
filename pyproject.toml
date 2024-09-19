@@ -22,7 +22,6 @@ readme = "README.md"
 license = "Apache-2.0"
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
-    "Private :: Do Not Upload",
 ]
 include = [
     { path = "mypy.ini", format = "sdist" },
