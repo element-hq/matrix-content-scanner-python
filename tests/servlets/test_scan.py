@@ -12,6 +12,7 @@ from multidict import CIMultiDict
 from matrix_content_scanner.httpserver import HTTPServer
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import ContentScannerRestError
+
 from tests.testutils import get_content_scanner
 
 SERVER_NAME = "test"

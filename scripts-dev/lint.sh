@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Runs linting scripts and type checking
-# isort - sorts import statements
-# black - opinionated code formatter
-# flake8 - lints and finds mistakes
+# ruff - sorts import statements, lints and finds mistakes, formats the code
 # mypy - checks type annotations
 
 set -e
@@ -16,7 +14,12 @@ files=(
 # Print out the commands being run
 set -x
 
-isort "${files[@]}"
-python3 -m black "${files[@]}"
-flake8 "${files[@]}"
+# Catch any common programming mistakes in Python code.
+# --quiet suppresses the update check.
+ruff check --quiet --fix "${files[@]}"
+
+# Reformat Python code.
+ruff format --quiet "${files[@]}"
+
+# Type-check the code.
 mypy "${files[@]}"

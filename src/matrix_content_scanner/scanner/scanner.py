@@ -272,7 +272,6 @@ class Scanner:
                 self._max_size_to_cache is not None
                 and len(media.content) > self._max_size_to_cache
             ):
-
                 # Don't cache the file's content if it exceeds the maximum allowed file
                 # size, to minimise memory usage.
                 logger.info(

@@ -29,8 +29,6 @@ class _PathNotFoundException(Exception):
     homeserver.
     """
 
-    pass
-
 
 class FileDownloader:
     MEDIA_DOWNLOAD_PREFIX = "_matrix/media/%s/download"

@@ -4,7 +4,7 @@ on:
     branches: ["main"]
   pull_request:
 
-jobs: 
+jobs:
   check-code-style:
     name: Check code style
     runs-on: ubuntu-latest
@@ -13,11 +13,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v2
+
+      - name: Setup Poetry
+        uses: matrix-org/setup-python-poetry@v1
         with:
-          python-version: "3.11"
-      - run: python -m pip install tox "poetry==1.8.3"
-      - run: tox -e check_codestyle
+          install-project: "false"
+
+      - name: Run ruff check
+        run: poetry run ruff check --output-format=github .
+
+      - name: Run ruff format
+        run: poetry run ruff format --check .
 
   check-types:
     name: Check types with Mypy
@@ -26,12 +32,31 @@ jobs:
       - run: sudo apt-get install -y libmagic1
       - uses: actions/checkout@v4
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v2
+        uses: dtolnay/rust-toolchain@1.82.0
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Setup Poetry
+        uses: matrix-org/setup-python-poetry@v1
         with:
-          python-version: "3.11"
-      - run: python -m pip install tox "poetry==1.8.3"
-      - run: tox -e check_types
+          # We have seen odd mypy failures that were resolved when we started
+          # installing the project again:
+          # https://github.com/matrix-org/synapse/pull/15376#issuecomment-1498983775
+          # To make CI green, err towards caution and install the project.
+          install-project: "true"
+
+      # Cribbed from
+      # https://github.com/AustinScola/mypy-cache-github-action/blob/85ea4f2972abed39b33bd02c36e341b28ca59213/src/restore.ts#L10-L17
+      - name: Restore/persist mypy's cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .mypy_cache
+          key: mypy-cache-${{ github.context.sha }}
+          restore-keys: mypy-cache-
+
+      - name: Run mypy
+        run: poetry run mypy
+
 
   unit-tests:
     name: Unit tests

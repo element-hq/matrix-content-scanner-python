@@ -18,6 +18,7 @@ from matrix_content_scanner.utils.errors import (
     FileMimeTypeForbiddenError,
 )
 from matrix_content_scanner.utils.types import MediaDescription
+
 from tests.testutils import (
     ENCRYPTED_FILE_METADATA,
     MEDIA_PATH,

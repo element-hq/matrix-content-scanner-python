@@ -10,6 +10,7 @@ from matrix_content_scanner.utils.encrypted_file_metadata import (
     validate_encrypted_file_metadata,
 )
 from matrix_content_scanner.utils.errors import ContentScannerRestError
+
 from tests.testutils import ENCRYPTED_FILE_METADATA
 
 

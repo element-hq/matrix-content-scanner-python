@@ -14,6 +14,7 @@ from matrix_content_scanner.utils.errors import (
     WellKnownDiscoveryError,
 )
 from matrix_content_scanner.utils.types import JsonDict
+
 from tests.testutils import (
     MEDIA_PATH,
     SMALL_PNG,
@@ -42,9 +43,13 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             .well-known client file.
             """
             if (
-                url.endswith("/_matrix/media/v3/download/" + MEDIA_PATH)
+                url.endswith(
+                    (
+                        "/_matrix/media/v3/download/" + MEDIA_PATH,
+                        "/_matrix/media/r0/download/" + MEDIA_PATH,
+                    )
+                )
                 or "/_matrix/media/v3/thumbnail/" + MEDIA_PATH in url
-                or url.endswith("/_matrix/media/r0/download/" + MEDIA_PATH)
                 or "/_matrix/media/r0/thumbnail/" + MEDIA_PATH in url
             ):
                 return self.media_status, self.media_body, self.media_headers
