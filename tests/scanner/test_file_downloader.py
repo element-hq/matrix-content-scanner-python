@@ -69,8 +69,8 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.assertEqual(media.content_type, "image/png")
 
         # Check that we tried downloading from the set base URL.
-        args = self.get_mock.call_args
-        self.assertTrue(args[0][0].startswith("http://my-site.com/"))
+        args = self.get_mock.call_args.args
+        self.assertTrue(args[0].startswith("http://my-site.com/"))
 
     async def test_no_base_url(self) -> None:
         """Tests that configuring a base homeserver URL means files are downloaded from
@@ -146,7 +146,9 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             MEDIA_PATH, to_thumbnail_params({"height": "50"})
         )
 
-        query: CIMultiDictProxy[str] = self.get_mock.call_args[1]["query"]
+        url: str = self.get_mock.call_args.args[0]
+        query: CIMultiDictProxy[str] = self.get_mock.call_args.kwargs["query"]
+        self.assertIn("/thumbnail/", url)
         self.assertIn("height", query)
         self.assertEqual(query.get("height"), "50", query.getall("height"))
 
