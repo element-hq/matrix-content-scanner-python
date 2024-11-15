@@ -76,10 +76,17 @@ class Scanner:
 
         self._max_size_to_cache = mcs.config.result_cache.max_file_size
 
-        # List of MIME types we should allow. If None, we don't fail files based on their
+        # List of MIME types we should allow.
+        # If None, we fall back to `_blocked_mimetypes`.
+        # If that's also None, we don't fail files based on their
         # MIME types (besides comparing it with the Content-Type header from the server
         # for unencrypted files).
         self._allowed_mimetypes = mcs.config.scan.allowed_mimetypes
+
+        # List of MIME types we should block.
+        # Must not be specified at the same time as `_allowed_mimetypes`.
+        # See the comment for `_allowed_mimetypes` for the semantics.
+        self._blocked_mimetypes = mcs.config.scan.blocked_mimetypes
 
         # Cache of futures for files that are currently scanning and downloading, so that
         # concurrent requests don't cause a file to be downloaded and scanned twice.
@@ -497,6 +504,20 @@ class Scanner:
         if (
             self._allowed_mimetypes is not None
             and detected_mimetype not in self._allowed_mimetypes
+        ):
+            logger.error(
+                "MIME type for file is forbidden: %s",
+                detected_mimetype,
+            )
+            raise FileMimeTypeForbiddenError(
+                f"File type: {detected_mimetype} not allowed"
+            )
+
+        # If there's a block list for MIME types, check that the MIME type detected for
+        # this file is NOT in it.
+        if (
+            self._blocked_mimetypes is not None
+            and detected_mimetype in self._blocked_mimetypes
         ):
             logger.error(
                 "MIME type for file is forbidden: %s",

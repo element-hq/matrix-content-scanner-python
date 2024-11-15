@@ -36,8 +36,19 @@ scan:
 
     # List of allowed MIME types. If a file has a MIME type that's not in this list, its
     # scan is considered failed.
+    # Unrecognised binary files are considered to be `application/octet-stream`.
+    # Unrecognised text files are considered to be `text/plain`.
     # Optional, defaults to allowing all MIME types.
     allowed_mimetypes: ["image/jpeg"]
+
+    # List of blocked MIME types.
+    # If specified, `allowed_mimetypes` must not be specified as well.
+    # If specified, a file whose MIME type is on this list will produce a scan that is
+    # considered failed.
+    # Unrecognised binary files are considered to be `application/octet-stream`.
+    # Unrecognised text files are considered to be `text/plain`.
+    # Optional.
+    # blocked_mimetypes: ["image/jpeg"]
 
 # Configuration of scan result caching.
 #

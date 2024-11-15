@@ -75,6 +75,7 @@ _config_schema = {
                 "temp_directory": {"type": "string"},
                 "removal_command": {"type": "string"},
                 "allowed_mimetypes": {"type": "array", "items": {"type": "string"}},
+                "blocked_mimetypes": {"type": "array", "items": {"type": "string"}},
             },
         },
         "download": {
@@ -131,6 +132,7 @@ class ScanConfig:
     temp_directory: str
     removal_command: str = "rm"
     allowed_mimetypes: Optional[List[str]] = None
+    blocked_mimetypes: Optional[List[str]] = None
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -175,3 +177,15 @@ class MatrixContentScannerConfig:
         self.crypto = CryptoConfig(**(config_dict.get("crypto") or {}))
         self.download = DownloadConfig(**(config_dict.get("download") or {}))
         self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
+
+        # Don't allow both allowlist and blocklist for MIME types, since we do not document
+        # the semantics for that and it is in any case pointless.
+        # This could have been expressed in JSONSchema but I suspect the error message would be poor
+        # in that case.
+        if (
+            self.scan.allowed_mimetypes is not None
+            and self.scan.blocked_mimetypes is not None
+        ):
+            raise ConfigError(
+                "Both `scan.allowed_mimetypes` and `scan.blocked_mimetypes` are specified, which is not allowed!"
+            )

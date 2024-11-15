@@ -22,6 +22,12 @@ SMALL_PNG = unhexlify(
     b"0a2db40000000049454e44ae426082"
 )
 
+# A small binary file without any specific format.
+SMALL_BINARY_FILE = unhexlify(b"010203")
+
+# A small text file without any specific format.
+SMALL_TEXT_FILE = b"Hello world\nThis is a tiny text file"
+
 # A small, encrypted PNG.
 SMALL_PNG_ENCRYPTED = unhexlify(
     b"9fd28dd7a1d845a04948f13af104e39402c888f7b601bce313ad"

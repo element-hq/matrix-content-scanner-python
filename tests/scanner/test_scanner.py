@@ -22,8 +22,10 @@ from matrix_content_scanner.utils.types import MediaDescription
 from tests.testutils import (
     ENCRYPTED_FILE_METADATA,
     MEDIA_PATH,
+    SMALL_BINARY_FILE,
     SMALL_PNG,
     SMALL_PNG_ENCRYPTED,
+    SMALL_TEXT_FILE,
     get_content_scanner,
     to_thumbnail_params,
 )
@@ -219,7 +221,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         # But it also causes it to be downloaded again because its metadata have changed.
         self.assertEqual(self.downloader_mock.call_count, 2)
 
-    async def test_mimetype(self) -> None:
+    async def test_allowlist_mimetype(self) -> None:
         """Tests that, if there's an allow list for MIME types and the file's MIME type
         isn't in it, the file's scan fails.
         """
@@ -230,7 +232,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         with self.assertRaises(FileMimeTypeForbiddenError):
             await self.scanner.scan_file(MEDIA_PATH)
 
-    async def test_mimetype_encrypted(self) -> None:
+    async def test_allowlist_mimetype_encrypted(self) -> None:
         """Tests that the file's MIME type is correctly detected and compared with the
         allow list (if set), even if it's encrypted.
         """
@@ -242,6 +244,66 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         # Check that the scan fails since the file is a PNG.
         with self.assertRaises(FileMimeTypeForbiddenError):
             await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+
+    async def test_blocklist_mimetype(self) -> None:
+        """Tests that, if there's an allow list for MIME types and the file's MIME type
+        isn't in it, the file's scan fails.
+        """
+        # Set a block list that blocks PNG images.
+        self.scanner._blocked_mimetypes = ["image/png"]
+
+        # Check that the scan fails since the file is a PNG.
+        with self.assertRaises(FileMimeTypeForbiddenError):
+            await self.scanner.scan_file(MEDIA_PATH)
+
+    async def test_blocklist_mimetype_encrypted(self) -> None:
+        """Tests that the file's MIME type is correctly detected and compared with the
+        allow list (if set), even if it's encrypted.
+        """
+        self._setup_encrypted()
+
+        # Set a block list that blocks PNG images.
+        self.scanner._blocked_mimetypes = ["image/png"]
+
+        # Check that the scan fails since the file is a PNG.
+        with self.assertRaises(FileMimeTypeForbiddenError):
+            await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+
+    async def test_blocklist_mimetype_fallback_binary_file(self) -> None:
+        """Tests that unrecognised binary files' MIME type is assumed to be
+        `application/octet-stream` and that they can be blocked in this way.
+        """
+
+        self.downloader_res = MediaDescription(
+            # This is the *claimed* content-type by the uploader
+            content_type="application/vnd.io.element.generic_binary_file",
+            content=SMALL_BINARY_FILE,
+            response_headers=CIMultiDictProxy(CIMultiDict()),
+        )
+
+        # Set a block list that blocks uncategorised binary files.
+        self.scanner._blocked_mimetypes = ["application/octet-stream"]
+
+        with self.assertRaises(FileMimeTypeForbiddenError):
+            await self.scanner.scan_file(MEDIA_PATH)
+
+    async def test_blocklist_mimetype_fallback_text_file(self) -> None:
+        """Tests that unrecognised text files' MIME type is assumed to be
+        `text/plain` and that they can be blocked in this way.
+        """
+
+        self.downloader_res = MediaDescription(
+            # This is the *claimed* content-type by the uploader
+            content_type="application/vnd.io.element.generic_file",
+            content=SMALL_TEXT_FILE,
+            response_headers=CIMultiDictProxy(CIMultiDict()),
+        )
+
+        # Set a block list that blocks uncategorised text files.
+        self.scanner._blocked_mimetypes = ["text/plain"]
+
+        with self.assertRaises(FileMimeTypeForbiddenError):
+            await self.scanner.scan_file(MEDIA_PATH)
 
     async def test_dont_cache_exit_codes(self) -> None:
         """Tests that if the configuration specifies exit codes to ignore when running
