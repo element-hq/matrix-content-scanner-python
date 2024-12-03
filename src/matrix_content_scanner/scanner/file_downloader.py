@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 # Please see LICENSE in the repository root for full details.
+import copy
 import json
 import logging
 import urllib.parse
@@ -33,8 +34,8 @@ class _PathNotFoundException(Exception):
 class FileDownloader:
     MEDIA_DOWNLOAD_PREFIX = "_matrix/media/%s/download"
     MEDIA_THUMBNAIL_PREFIX = "_matrix/media/%s/thumbnail"
-    MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX = "_matrix/client/v1/media/download"
-    MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX = "_matrix/client/v1/media/thumbnail"
+    MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX = "_matrix/client/%s/media/download"
+    MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX = "_matrix/client/%s/media/thumbnail"
 
     def __init__(self, mcs: "MatrixContentScanner"):
         self._base_url = mcs.config.download.base_homeserver_url
@@ -66,22 +67,41 @@ class FileDownloader:
                 to an error on the remote homeserver's side.
         """
 
-        prefix = self.MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX if auth_header is not None else self.MEDIA_DOWNLOAD_PREFIX
-        if thumbnail_params is not None:
-            prefix = self.MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX if auth_header is not None else self.MEDIA_THUMBNAIL_PREFIX
+        auth_media = True if auth_header is not None else False
 
-        url = await self._build_https_url(media_path, prefix)
+        prefix = (
+            self.MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX
+            if auth_media
+            else self.MEDIA_DOWNLOAD_PREFIX
+        )
+        if thumbnail_params is not None:
+            prefix = (
+                self.MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX
+                if auth_media
+                else self.MEDIA_THUMBNAIL_PREFIX
+            )
+
+        url = await self._build_https_url(
+            media_path, prefix, "v1" if auth_media else "v3"
+        )
 
         # Attempt to retrieve the file at the generated URL.
         try:
             file = await self._get_file_content(url, thumbnail_params, auth_header)
         except _PathNotFoundException:
+            if auth_media:
+                raise ContentScannerRestError(
+                    http_status=HTTPStatus.NOT_FOUND,
+                    reason=ErrCode.NOT_FOUND,
+                    info="File not found",
+                )
+
             # If the file could not be found, it might be because the homeserver hasn't
             # been upgraded to a version that supports Matrix v1.1 endpoints yet, so try
             # again with an r0 endpoint.
             logger.info("File not found, trying legacy r0 path")
 
-            url = await self._build_https_url(media_path, prefix, endpoint_version="r0")
+            url = await self._build_https_url(media_path, prefix, "r0")
 
             try:
                 file = await self._get_file_content(url, thumbnail_params, auth_header)
@@ -99,7 +119,7 @@ class FileDownloader:
         self,
         media_path: str,
         prefix: str,
-        endpoint_version: str = "v3",
+        endpoint_version: str,
     ) -> str:
         """Turn a `server_name/media_id` path into an https:// one we can use to fetch
         the media.
@@ -110,7 +130,8 @@ class FileDownloader:
         Args:
             media_path: The media path to translate.
             endpoint_version: The version of the download endpoint to use. As of Matrix
-                v1.1, this is either "v3" or "r0".
+                v1.11, this is "v1" for authenticated media. For unauthenticated media
+                this is either "v3" or "r0".
 
         Returns:
             An https URL to use. If `base_homeserver_url` is set in the config, this
@@ -139,7 +160,6 @@ class FileDownloader:
                 # base_url might be None if either .well-known discovery failed, or we
                 # didn't find a .well-known file.
                 base_url = "https://" + server_name
-
 
         # Build the full URL.
         path_prefix = prefix % endpoint_version
@@ -327,12 +347,19 @@ class FileDownloader:
         try:
             logger.info("Sending GET request to %s", url)
             async with aiohttp.ClientSession() as session:
+                # TODO: Test we don't persist auth token
+                request_headers = copy.deepcopy(self._headers)
                 if auth_header is not None:
-                    self._headers.update("Authorization", auth_header)
+                    auth_dict = {"Authorization": auth_header}
+                    if request_headers is None:
+                        request_headers = auth_dict
+                    else:
+                        request_headers.update(auth_dict)
+
                 async with session.get(
                     url,
                     proxy=self._proxy_url,
-                    headers=self._headers,
+                    headers=request_headers,
                     params=query,
                 ) as resp:
                     return resp.status, await resp.read(), resp.headers
