@@ -23,9 +23,10 @@ class ScanHandler:
         self,
         media_path: str,
         metadata: Optional[JsonDict] = None,
+        auth_header: Optional[str] = None,
     ) -> Tuple[int, JsonDict]:
         try:
-            await self._scanner.scan_file(media_path, metadata)
+            await self._scanner.scan_file(media_path, metadata, auth_header=auth_header)
         except FileDirtyError as e:
             res = {"clean": False, "info": e.info}
         else:
@@ -37,7 +38,7 @@ class ScanHandler:
     async def handle_plain(self, request: web.Request) -> Tuple[int, JsonDict]:
         """Handles GET requests to ../scan/serverName/mediaId"""
         media_path = request.match_info["media_path"]
-        return await self._scan_and_format(media_path)
+        return await self._scan_and_format(media_path, auth_header=request.headers.get("Authorization"))
 
     @web_handler
     async def handle_encrypted(self, request: web.Request) -> Tuple[int, JsonDict]:
@@ -45,4 +46,4 @@ class ScanHandler:
         media_path, metadata = await get_media_metadata_from_request(
             request, self._crypto_handler
         )
-        return await self._scan_and_format(media_path, metadata)
+        return await self._scan_and_format(media_path, metadata, auth_header=request.headers.get("Authorization"))

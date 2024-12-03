@@ -37,7 +37,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.media_headers = get_base_media_headers()
 
         async def _get(
-            url: str, query: Optional[MultiDictProxy[str]] = None
+            url: str, query: Optional[MultiDictProxy[str]] = None, auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that doesn't serve a
             .well-known client file.
@@ -88,7 +88,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
-            call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH, query=None),
+            call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH, query=None, auth_header=None),
         )
 
     async def test_retry_on_404(self) -> None:
@@ -128,13 +128,13 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.assertEqual(
             self.get_mock.mock_calls[0],
             call(
-                "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH, query=None
+                "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH, query=None, auth_header=None,
             ),
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
             call(
-                "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH, query=None
+                "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH, query=None, auth_header=None,
             ),
         )
 
@@ -203,7 +203,7 @@ class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
         self.versions_status = 200
 
         async def _get(
-            url: str, query: Optional[MultiDictProxy[str]] = None
+            url: str, query: Optional[MultiDictProxy[str]] = None, auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that serves a .well-known
             client file.
