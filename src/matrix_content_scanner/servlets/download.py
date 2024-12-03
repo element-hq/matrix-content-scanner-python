@@ -28,7 +28,9 @@ class DownloadHandler:
         metadata: Optional[JsonDict] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, _BytesResponse]:
-        media = await self._scanner.scan_file(media_path, metadata, auth_header=auth_header)
+        media = await self._scanner.scan_file(
+            media_path, metadata, auth_header=auth_header
+        )
 
         return 200, _BytesResponse(
             headers=media.response_headers,
@@ -39,7 +41,9 @@ class DownloadHandler:
     async def handle_plain(self, request: web.Request) -> Tuple[int, _BytesResponse]:
         """Handles GET requests to ../download/serverName/mediaId"""
         media_path = request.match_info["media_path"]
-        return await self._scan(media_path, auth_header=request.headers.get("Authorization"))
+        return await self._scan(
+            media_path, auth_header=request.headers.get("Authorization")
+        )
 
     @web_handler
     async def handle_encrypted(
@@ -50,4 +54,6 @@ class DownloadHandler:
             request, self._crypto_handler
         )
 
-        return await self._scan(media_path, metadata, auth_header=request.headers.get("Authorization"))
+        return await self._scan(
+            media_path, metadata, auth_header=request.headers.get("Authorization")
+        )

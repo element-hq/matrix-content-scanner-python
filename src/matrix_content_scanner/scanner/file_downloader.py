@@ -198,7 +198,9 @@ class FileDownloader:
             ContentScannerRestError: the server returned a non-200 status which cannot
                 meant that the path wasn't understood.
         """
-        code, body, headers = await self._get(url, query=thumbnail_params, auth_header=auth_header)
+        code, body, headers = await self._get(
+            url, query=thumbnail_params, auth_header=auth_header
+        )
 
         logger.info("Remote server responded with %d", code)
 

@@ -100,7 +100,7 @@ class Scanner:
         media_path: str,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional["MultiMapping[str]"] = None,
-        auth_header: Optional[str] = None
+        auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
