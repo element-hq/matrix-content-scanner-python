@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 # Please see LICENSE in the repository root for full details.
-import copy
 import json
 import logging
 import urllib.parse
@@ -349,14 +348,12 @@ class FileDownloader:
         try:
             logger.info("Sending GET request to %s", url)
             async with aiohttp.ClientSession() as session:
-                # TODO: Test we don't persist auth token
-                request_headers = copy.deepcopy(self._headers)
-                if auth_header is not None:
-                    auth_dict = {"Authorization": auth_header}
-                    if request_headers is None:
-                        request_headers = auth_dict
-                    else:
-                        request_headers.update(auth_dict)
+                if auth_header is None:
+                    request_headers = self._headers
+                else:
+                    request_headers = {"Authorization": auth_header}
+                    if self._headers is not None:
+                        request_headers = {**request_headers, **self._headers}
 
                 async with session.get(
                     url,
