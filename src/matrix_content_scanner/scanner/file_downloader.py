@@ -40,7 +40,11 @@ class FileDownloader:
         self._base_url = mcs.config.download.base_homeserver_url
         self._well_known_cache: Dict[str, Optional[str]] = {}
         self._proxy_url = mcs.config.download.proxy
-        self._headers = mcs.config.download.additional_headers
+        self._headers = (
+            mcs.config.download.additional_headers
+            if mcs.config.download.additional_headers is not None
+            else {}
+        )
 
     async def download_file(
         self,
@@ -348,12 +352,10 @@ class FileDownloader:
         try:
             logger.info("Sending GET request to %s", url)
             async with aiohttp.ClientSession() as session:
-                if auth_header is None:
-                    request_headers = self._headers
+                if auth_header is not None:
+                    request_headers = {"Authorization": auth_header, **self._headers}
                 else:
-                    request_headers = {"Authorization": auth_header}
-                    if self._headers is not None:
-                        request_headers = {**request_headers, **self._headers}
+                    request_headers = self._headers
 
                 async with session.get(
                     url,
