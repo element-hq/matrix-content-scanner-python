@@ -100,6 +100,7 @@ class Scanner:
         media_path: str,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional["MultiMapping[str]"] = None,
+        auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
@@ -119,6 +120,8 @@ class Scanner:
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
+            auth_header: If present, we forward the given Authorization header, this is
+                required for authenticated media endpoints.
 
         Returns:
             A description of the media.
@@ -141,7 +144,7 @@ class Scanner:
             # Try to download and scan the file.
             try:
                 res = await self._scan_file(
-                    cache_key, media_path, metadata, thumbnail_params
+                    cache_key, media_path, metadata, thumbnail_params, auth_header
                 )
                 # Set the future's result, and mark it as done.
                 f.set_result(res)
@@ -168,6 +171,7 @@ class Scanner:
         media_path: str,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional[MultiMapping[str]] = None,
+        auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Download and scan the given media.
 
@@ -185,6 +189,8 @@ class Scanner:
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
+            auth_header: If present, we forward the given Authorization header, this is
+                required for authenticated media endpoints.
 
         Returns:
             A description of the media.
@@ -218,6 +224,7 @@ class Scanner:
             media = await self._file_downloader.download_file(
                 media_path=media_path,
                 thumbnail_params=thumbnail_params,
+                auth_header=auth_header,
             )
 
             # Compare the media's hash to ensure the server hasn't changed the file since
@@ -251,6 +258,7 @@ class Scanner:
             media = await self._file_downloader.download_file(
                 media_path=media_path,
                 thumbnail_params=thumbnail_params,
+                auth_header=auth_header,
             )
 
         # Download and scan the file.

@@ -42,6 +42,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         async def download_file(
             media_path: str,
             thumbnail_params: Optional[Dict[str, List[str]]] = None,
+            auth_header: Optional[str] = None,
         ) -> MediaDescription:
             """Mock for the file downloader's `download_file` method."""
             return self.downloader_res

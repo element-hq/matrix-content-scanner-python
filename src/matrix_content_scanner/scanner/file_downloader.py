@@ -33,17 +33,24 @@ class _PathNotFoundException(Exception):
 class FileDownloader:
     MEDIA_DOWNLOAD_PREFIX = "_matrix/media/%s/download"
     MEDIA_THUMBNAIL_PREFIX = "_matrix/media/%s/thumbnail"
+    MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX = "_matrix/client/%s/media/download"
+    MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX = "_matrix/client/%s/media/thumbnail"
 
     def __init__(self, mcs: "MatrixContentScanner"):
         self._base_url = mcs.config.download.base_homeserver_url
         self._well_known_cache: Dict[str, Optional[str]] = {}
         self._proxy_url = mcs.config.download.proxy
-        self._headers = mcs.config.download.additional_headers
+        self._headers = (
+            mcs.config.download.additional_headers
+            if mcs.config.download.additional_headers is not None
+            else {}
+        )
 
     async def download_file(
         self,
         media_path: str,
         thumbnail_params: Optional[MultiMapping[str]] = None,
+        auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Retrieve the file with the given `server_name/media_id` path, and stores it on
         disk.
@@ -52,6 +59,8 @@ class FileDownloader:
             media_path: The path identifying the media to retrieve.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
+            auth_header: If present, we forward the given Authorization header, this is
+                required for authenticated media endpoints.
 
         Returns:
             A description of the file (including its full content).
@@ -60,27 +69,45 @@ class FileDownloader:
             ContentScannerRestError: The file was not found or could not be downloaded due
                 to an error on the remote homeserver's side.
         """
+
+        auth_media = True if auth_header is not None else False
+
+        prefix = (
+            self.MEDIA_DOWNLOAD_AUTHENTICATED_PREFIX
+            if auth_media
+            else self.MEDIA_DOWNLOAD_PREFIX
+        )
+        if thumbnail_params is not None:
+            prefix = (
+                self.MEDIA_THUMBNAIL_AUTHENTICATED_PREFIX
+                if auth_media
+                else self.MEDIA_THUMBNAIL_PREFIX
+            )
+
         url = await self._build_https_url(
-            media_path, for_thumbnail=thumbnail_params is not None
+            media_path, prefix, "v1" if auth_media else "v3"
         )
 
         # Attempt to retrieve the file at the generated URL.
         try:
-            file = await self._get_file_content(url, thumbnail_params)
+            file = await self._get_file_content(url, thumbnail_params, auth_header)
         except _PathNotFoundException:
+            if auth_media:
+                raise ContentScannerRestError(
+                    http_status=HTTPStatus.NOT_FOUND,
+                    reason=ErrCode.NOT_FOUND,
+                    info="File not found",
+                )
+
             # If the file could not be found, it might be because the homeserver hasn't
             # been upgraded to a version that supports Matrix v1.1 endpoints yet, so try
             # again with an r0 endpoint.
             logger.info("File not found, trying legacy r0 path")
 
-            url = await self._build_https_url(
-                media_path,
-                endpoint_version="r0",
-                for_thumbnail=thumbnail_params is not None,
-            )
+            url = await self._build_https_url(media_path, prefix, "r0")
 
             try:
-                file = await self._get_file_content(url, thumbnail_params)
+                file = await self._get_file_content(url, thumbnail_params, auth_header)
             except _PathNotFoundException:
                 # If that still failed, raise an error.
                 raise ContentScannerRestError(
@@ -94,9 +121,8 @@ class FileDownloader:
     async def _build_https_url(
         self,
         media_path: str,
-        endpoint_version: str = "v3",
-        *,
-        for_thumbnail: bool,
+        prefix: str,
+        endpoint_version: str,
     ) -> str:
         """Turn a `server_name/media_id` path into an https:// one we can use to fetch
         the media.
@@ -107,10 +133,8 @@ class FileDownloader:
         Args:
             media_path: The media path to translate.
             endpoint_version: The version of the download endpoint to use. As of Matrix
-                v1.1, this is either "v3" or "r0".
-            for_thumbnail: True if a server-side thumbnail is desired instead of the full
-                media. In that case, the URL for the `/thumbnail` endpoint is returned
-                instead of the `/download` endpoint.
+                v1.11, this is "v1" for authenticated media. For unauthenticated media
+                this is either "v3" or "r0".
 
         Returns:
             An https URL to use. If `base_homeserver_url` is set in the config, this
@@ -140,10 +164,6 @@ class FileDownloader:
                 # didn't find a .well-known file.
                 base_url = "https://" + server_name
 
-        prefix = (
-            self.MEDIA_THUMBNAIL_PREFIX if for_thumbnail else self.MEDIA_DOWNLOAD_PREFIX
-        )
-
         # Build the full URL.
         path_prefix = prefix % endpoint_version
         url = "%s/%s/%s/%s" % (
@@ -159,12 +179,15 @@ class FileDownloader:
         self,
         url: str,
         thumbnail_params: Optional[MultiMapping[str]],
+        auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Retrieve the content of the file at a given URL.
 
         Args:
             url: The URL to query.
             thumbnail_params: Query parameters used if the request is for a thumbnail.
+            auth_header: If present, we forward the given Authorization header, this is
+                required for authenticated media endpoints.
 
         Returns:
             A description of the file (including its full content).
@@ -178,7 +201,9 @@ class FileDownloader:
             ContentScannerRestError: the server returned a non-200 status which cannot
                 meant that the path wasn't understood.
         """
-        code, body, headers = await self._get(url, query=thumbnail_params)
+        code, body, headers = await self._get(
+            url, query=thumbnail_params, auth_header=auth_header
+        )
 
         logger.info("Remote server responded with %d", code)
 
@@ -307,12 +332,15 @@ class FileDownloader:
         self,
         url: str,
         query: Optional[MultiMapping[str]] = None,
+        auth_header: Optional[str] = None,
     ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
         """Sends a GET request to the provided URL.
 
         Args:
             url: The URL to send requests to.
             query: Optional parameters to use in the request's query string.
+            auth_header: If present, we forward the given Authorization header, this is
+                required for authenticated media endpoints.
 
         Returns:
             The HTTP status code, body and headers the remote server responded with.
@@ -324,10 +352,15 @@ class FileDownloader:
         try:
             logger.info("Sending GET request to %s", url)
             async with aiohttp.ClientSession() as session:
+                if auth_header is not None:
+                    request_headers = {"Authorization": auth_header, **self._headers}
+                else:
+                    request_headers = self._headers
+
                 async with session.get(
                     url,
                     proxy=self._proxy_url,
-                    headers=self._headers,
+                    headers=request_headers,
                     params=query,
                 ) as resp:
                     return resp.status, await resp.read(), resp.headers

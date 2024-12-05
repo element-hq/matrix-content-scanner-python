@@ -37,7 +37,9 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.media_headers = get_base_media_headers()
 
         async def _get(
-            url: str, query: Optional[MultiDictProxy[str]] = None
+            url: str,
+            query: Optional[MultiDictProxy[str]] = None,
+            auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that doesn't serve a
             .well-known client file.
@@ -53,6 +55,14 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
                 or "/_matrix/media/r0/thumbnail/" + MEDIA_PATH in url
             ):
                 return self.media_status, self.media_body, self.media_headers
+            if (
+                url.endswith(("/_matrix/client/v1/media/download/" + MEDIA_PATH,))
+                or "/_matrix/client/v1/media/thumbnail/" + MEDIA_PATH in url
+            ):
+                if auth_header is not None:
+                    return self.media_status, self.media_body, self.media_headers
+                else:
+                    return 404, b"Not found", CIMultiDictProxy(CIMultiDict())
             elif url.endswith("/.well-known/matrix/client"):
                 return 404, b"Not found", CIMultiDictProxy(CIMultiDict())
 
@@ -72,6 +82,19 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         args = self.get_mock.call_args.args
         self.assertTrue(args[0].startswith("http://my-site.com/"))
 
+    async def test_download_auth_media(self) -> None:
+        """Tests that downloading a file works using authenticated media."""
+        media = await self.downloader.download_file(
+            MEDIA_PATH, auth_header="Bearer access_token"
+        )
+        self.assertEqual(media.content, SMALL_PNG)
+        self.assertEqual(media.content_type, "image/png")
+
+        # Check that we tried downloading from the set base URL.
+        args = self.get_mock.call_args.args
+        self.assertTrue(args[0].startswith("http://my-site.com/"))
+        self.assertIn("/_matrix/client/v1/media/download/" + MEDIA_PATH, args[0])
+
     async def test_no_base_url(self) -> None:
         """Tests that configuring a base homeserver URL means files are downloaded from
         that homeserver (rather than the one the files were uploaded to) and .well-known
@@ -88,7 +111,11 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
-            call("https://foo/_matrix/media/v3/download/" + MEDIA_PATH, query=None),
+            call(
+                "https://foo/_matrix/media/v3/download/" + MEDIA_PATH,
+                query=None,
+                auth_header=None,
+            ),
         )
 
     async def test_retry_on_404(self) -> None:
@@ -128,13 +155,45 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.assertEqual(
             self.get_mock.mock_calls[0],
             call(
-                "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH, query=None
+                "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH,
+                query=None,
+                auth_header=None,
             ),
         )
         self.assertEqual(
             self.get_mock.mock_calls[1],
             call(
-                "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH, query=None
+                "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH,
+                query=None,
+                auth_header=None,
+            ),
+        )
+
+    async def test_no_retry(self) -> None:
+        """Tests that in a set specific case a failure to download a file from a v1
+        authenticated media download path means we don't retry the request.
+        """
+        self.media_status = 400
+        self.media_body = b'{"errcode":"M_UNRECOGNIZED","error":"Unrecognized request"}'
+        self._set_headers({"content-type": ["application/json"]})
+
+        # Check that we eventually fail at downloading the file.
+        with self.assertRaises(ContentScannerRestError) as cm:
+            await self.downloader.download_file(
+                MEDIA_PATH, auth_header="Bearer access_token"
+            )
+
+        self.assertEqual(cm.exception.http_status, 404)
+        self.assertEqual(cm.exception.info, "File not found")
+
+        # Check that we sent out only one request.
+        self.assertEqual(self.get_mock.call_count, 1)
+        self.assertEqual(
+            self.get_mock.mock_calls[0],
+            call(
+                "http://my-site.com/_matrix/client/v1/media/download/" + MEDIA_PATH,
+                query=None,
+                auth_header="Bearer access_token",
             ),
         )
 
@@ -149,6 +208,21 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         url: str = self.get_mock.call_args.args[0]
         query: CIMultiDictProxy[str] = self.get_mock.call_args.kwargs["query"]
         self.assertIn("/thumbnail/", url)
+        self.assertIn("height", query)
+        self.assertEqual(query.get("height"), "50", query.getall("height"))
+
+    async def test_thumbnail_auth_media(self) -> None:
+        """Tests that we can download a thumbnail and that the parameters to generate the
+        thumbnail are correctly passed on to the homeserver using authenticated media.
+        """
+        await self.downloader.download_file(
+            MEDIA_PATH, to_thumbnail_params({"height": "50"}), "Bearer access_token"
+        )
+
+        url: str = self.get_mock.call_args.args[0]
+        query: CIMultiDictProxy[str] = self.get_mock.call_args.kwargs["query"]
+        self.assertIn("/thumbnail/", url)
+        self.assertIn("/_matrix/client/v1/media/thumbnail/" + MEDIA_PATH, url)
         self.assertIn("height", query)
         self.assertEqual(query.get("height"), "50", query.getall("height"))
 
@@ -203,7 +277,9 @@ class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
         self.versions_status = 200
 
         async def _get(
-            url: str, query: Optional[MultiDictProxy[str]] = None
+            url: str,
+            query: Optional[MultiDictProxy[str]] = None,
+            auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
             """Mock for the _get method on the file downloader that serves a .well-known
             client file.
