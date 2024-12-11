@@ -187,7 +187,7 @@ Example (generated using the body and public key from the previous examples):
 When accessing media from a Synapse homeserver with authenticated media enabled, an additional
 HTTP header needs to be passed along with any request to the Matrix Content Scanner.
 
-This header follows the Matrix specification `Authentication Bearer scheme` as outlined [here](https://spec.matrix.org/v1.12/client-server-api/#using-access-tokens).
+This header follows the `Authentication Bearer scheme` as [outlined in the Matrix specification](https://spec.matrix.org/v1.12/client-server-api/#using-access-tokens).
 The `Authorization` header method must be used, sending the access token as a query string
 parameter is not supported.
 
