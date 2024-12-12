@@ -12,6 +12,15 @@ class ErrCode(str, Enum):
     # - No route was found with the path and method provided in the request.
     # - The homeserver does not have the requested piece of media.
     NOT_FOUND = "M_NOT_FOUND"
+    # The access token is missing from the request.
+    MISSING_TOKEN = "M_MISSING_TOKEN"
+    # The provided access token is invalid.
+    # One of the following:
+    # - the access token was never valid.
+    # - the access token has been logged out.
+    # - the access token has been soft logged out.
+    # - [Added in v1.3] the access token needs to be refreshed.
+    UNKNOWN_TOKEN = "M_UNKNOWN_TOKEN"
     # The file failed the scan.
     NOT_CLEAN = "MCS_MEDIA_NOT_CLEAN"
     # The file could not be retrieved from the homeserver.
