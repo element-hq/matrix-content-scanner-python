@@ -95,6 +95,54 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self.assertTrue(args[0].startswith("http://my-site.com/"))
         self.assertIn("/_matrix/client/v1/media/download/" + MEDIA_PATH, args[0])
 
+    async def test_download_auth_media_invalid_token(self) -> None:
+        """Tests that downloading an authenticated media file with an invalid access
+        token returns the correct error code.
+        """
+        self.media_status = 401
+        self.media_body = (
+            b'{"errcode":"M_UNKNOWN_TOKEN","error":"Invalid access token"}'
+        )
+        self._set_headers({"content-type": ["application/json"]})
+
+        # Check that we fail at downloading the file.
+        with self.assertRaises(ContentScannerRestError) as cm:
+            await self.downloader.download_file(
+                MEDIA_PATH, auth_header="Bearer access_token"
+            )
+
+        self.assertEqual(cm.exception.http_status, 401)
+        self.assertEqual(cm.exception.reason, "M_UNKNOWN_TOKEN")
+
+        # Check that we tried downloading from the set base URL.
+        args = self.get_mock.call_args.args
+        self.assertTrue(args[0].startswith("http://my-site.com/"))
+        self.assertIn("/_matrix/client/v1/media/download/" + MEDIA_PATH, args[0])
+
+    async def test_download_auth_media_missing_token(self) -> None:
+        """Tests that downloading an authenticated media file with a missing access
+        token returns the correct error code.
+        """
+        self.media_status = 401
+        self.media_body = (
+            b'{"errcode":"M_MISSING_TOKEN","error":"Missing access token"}'
+        )
+        self._set_headers({"content-type": ["application/json"]})
+
+        # Check that we fail at downloading the file.
+        with self.assertRaises(ContentScannerRestError) as cm:
+            await self.downloader.download_file(
+                MEDIA_PATH, auth_header="Bearer access_token"
+            )
+
+        self.assertEqual(cm.exception.http_status, 401)
+        self.assertEqual(cm.exception.reason, "M_MISSING_TOKEN")
+
+        # Check that we tried downloading from the set base URL.
+        args = self.get_mock.call_args.args
+        self.assertTrue(args[0].startswith("http://my-site.com/"))
+        self.assertIn("/_matrix/client/v1/media/download/" + MEDIA_PATH, args[0])
+
     async def test_no_base_url(self) -> None:
         """Tests that configuring a base homeserver URL means files are downloaded from
         that homeserver (rather than the one the files were uploaded to) and .well-known
