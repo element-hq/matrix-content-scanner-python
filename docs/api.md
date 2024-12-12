@@ -186,8 +186,11 @@ Example (generated using the body and public key from the previous examples):
 
 When accessing media from a Synapse homeserver with authenticated media enabled, an
 `Authorization` HTTP header must be passed along with any request to the Matrix Content Scanner.
+If the `Authorization` header is not present, the content scanner assumes the request is not an
+authenticated media request and will use the old Matrix endpoints.
 
 This header follows the `Authentication Bearer scheme` as [outlined in the Matrix specification](https://spec.matrix.org/v1.12/client-server-api/#using-access-tokens).
+The `access_token` must be the Matrix access token of the client's user.
 The `Authorization` header method must be used, sending the access token as a query string
 parameter is not supported.
 
@@ -196,3 +199,8 @@ Example authorization header:
 ```
 Authorization: Bearer <access_token>
 ```
+
+If a request is made for authenticated media and the access token is invalid, the content scanner
+will responde with a `MCS_MEDIA_REQUEST_FAILED`.
+If a request is made for authenticated media and the `Authorization` header is missing, the content
+scanner will responde with a `M_NOT_FOUND`.
