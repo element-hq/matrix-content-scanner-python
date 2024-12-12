@@ -27,6 +27,9 @@ status code of the response for each scenario:
 |-------------|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 400         | `MCS_MALFORMED_JSON`          | The request body contains malformed JSON.                                                                                                                                         |
 | 400         | `MCS_MEDIA_FAILED_TO_DECRYPT` | The server failed to decrypt the encrypted media downloaded from the media repo.                                                                                                  |
+| 401         | `M_MISSING_TOKEN`             | The request is missing a required access token for authentication.                                                                                                                |
+| 401         | `M_UNKNOWN_TOKEN`             | The access token provided for authentication is not valid.                                                                                                                        |
+| 404         | `M_NOT_FOUND`                 | The `Authorization` header was missing when requesting authenticated media.                                                                                                       |
 | 404         | `M_NOT_FOUND`                 | No route could be found at the given path.                                                                                                                                        |
 | 404         | `M_NOT_FOUND`                 | The requested media was not present in the media repo.                                                                                                                            |
 | 403         | `MCS_MEDIA_NOT_CLEAN`         | The server scanned the downloaded media but the antivirus script returned a non-zero exit code.                                                                                   |
@@ -199,8 +202,3 @@ Example authorization header:
 ```
 Authorization: Bearer <access_token>
 ```
-
-If a request is made for authenticated media and the access token is invalid, the content scanner
-will respond with HTTP status 502, errcode `MCS_MEDIA_REQUEST_FAILED`.
-If a request is made for authenticated media and the `Authorization` header is missing, the content
-scanner will respond with HTTP status 404, errcode `M_NOT_FOUND`.
