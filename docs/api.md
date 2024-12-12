@@ -201,6 +201,6 @@ Authorization: Bearer <access_token>
 ```
 
 If a request is made for authenticated media and the access token is invalid, the content scanner
-will responde with a `MCS_MEDIA_REQUEST_FAILED`.
+will respond with HTTP status 502, errcode `MCS_MEDIA_REQUEST_FAILED`.
 If a request is made for authenticated media and the `Authorization` header is missing, the content
-scanner will responde with a `M_NOT_FOUND`.
+scanner will respond with HTTP status 404, errcode `M_NOT_FOUND`.
