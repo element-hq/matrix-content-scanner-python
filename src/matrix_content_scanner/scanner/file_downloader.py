@@ -221,6 +221,24 @@ class FileDownloader:
                 except (json.decoder.JSONDecodeError, KeyError):
                     pass
 
+            if code == 401:
+                try:
+                    err = json.loads(body)
+                    if err["errcode"] == ErrCode.MISSING_TOKEN:
+                        raise ContentScannerRestError(
+                            HTTPStatus.UNAUTHORIZED,
+                            ErrCode.MISSING_TOKEN,
+                            "Access token missing from request",
+                        )
+                    if err["errcode"] == ErrCode.UNKNOWN_TOKEN:
+                        raise ContentScannerRestError(
+                            HTTPStatus.UNAUTHORIZED,
+                            ErrCode.UNKNOWN_TOKEN,
+                            "Invalid access token passed",
+                        )
+                except (json.decoder.JSONDecodeError, KeyError):
+                    pass
+
             if code == 404:
                 raise _PathNotFoundException
 
