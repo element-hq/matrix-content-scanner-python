@@ -62,7 +62,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY src /mcs/src/
 COPY rust /mcs/rust/
 # ... and what we need to `pip install`.
-COPY pyproject.toml README.md setup.cfg build_rust.py Cargo.toml Cargo.lock /mcs/
+COPY pyproject.toml README.md build_rust.py Cargo.toml Cargo.lock /mcs/
 
 # Repeat of earlier build argument declaration, as this is a new build stage.
 ARG TEST_ONLY_IGNORE_POETRY_LOCKFILE
