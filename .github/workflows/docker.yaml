@@ -5,6 +5,7 @@ name: Build docker images
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch: # A build was manually requested
 
 permissions:
   contents: read
