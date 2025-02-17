@@ -502,7 +502,7 @@ class Scanner:
             media_content: The file's content. If the file is encrypted, this is its
                 decrypted content.
         Raises:
-            FileDirtyError if one of the checks fail.
+            FileMimeTypeForbiddenError if one of the checks fail.
         """
         detected_mimetype = magic.from_buffer(media_content, mime=True)
         logger.debug("Detected MIME type for file is %s", detected_mimetype)
