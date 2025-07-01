@@ -32,3 +32,5 @@ class ErrCode(str, Enum):
     MALFORMED_JSON = "MCS_MALFORMED_JSON"
     # The Mime type is not in the allowed list of Mime types.
     MIME_TYPE_FORBIDDEN = "MCS_MIME_TYPE_FORBIDDEN"
+    # The body was not a multipart.
+    MALFORMED_MULTIPART = "MCS_MALFORMED_MULTIPART"

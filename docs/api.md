@@ -128,6 +128,26 @@ Downloads a specified encrypted file, decrypts it and then behaves identically t
 The request body for this route is the same as for
 `POST /_matrix/media_proxy/unstable/download_encrypted`.
 
+### `POST /_matrix/media_proxy/unstable/scan_file`
+
+Performs a scan on a file body without uploading to Matrix. This request takes a multi-part / form data
+body.
+
+Response format:
+
+| Parameter | Type | Description                                                        |
+|-----------|------|--------------------------------------------------------------------|
+| `body`    | [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob) | The file body. |
+| `file`    | EncryptedFile as JSON string  | The metadata (decryption key) of an encrypted file. Follows the format of the `EncryptedFile` structure from the [Matrix specification](https://spec.matrix.org/v1.2/client-server-api/#extensions-to-mroommessage-msgtypes). Only required if the file is encrypted. |
+
+Example:
+
+```json
+{
+    "clean": false,
+    "info": "***VIRUS DETECTED***"
+}
+```
 
 ### `GET /_matrix/media_proxy/unstable/public_key`
 
