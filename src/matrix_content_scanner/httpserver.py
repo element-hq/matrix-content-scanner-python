@@ -109,6 +109,7 @@ class HTTPServer:
             [
                 web.get("/scan" + _MEDIA_PATH_REGEXP, scan_handler.handle_plain),
                 web.post("/scan_encrypted", scan_handler.handle_encrypted),
+                web.post("/scan_file", scan_handler.handle_file),
                 web.get(
                     "/download" + _MEDIA_PATH_REGEXP, download_handler.handle_plain
                 ),

@@ -7,12 +7,14 @@ import hashlib
 import logging
 import os
 import subprocess
+import uuid
 from asyncio import Future
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import attr
 import magic
+from aiohttp import BodyPartReader
 from cachetools import TTLCache
 from canonicaljson import encode_canonical_json
 from humanfriendly import format_size
@@ -309,6 +311,55 @@ class Scanner:
 
         return media
 
+    async def scan_file_on_disk(
+        self, file_path: str, metadata: Optional[JsonDict] = None
+    ) -> None:
+        """Scan a file that already exists on disk. The file will be deleted after scanning.
+
+        This does not cache the result.
+
+        Args:
+            file_path: The full file path to the source file.
+            metadata: The metadata attached to the file (e.g. decryption key), or None if
+                the file isn't encrypted.
+
+        Raises:
+            FileDirtyError if the result of the scan said that the file is dirty.
+        """
+        scan_filename = file_path
+        if metadata is not None:
+            with open(file_path, "rb") as f:
+                content = f.read()
+                # If the file is encrypted, we need to decrypt it before we can scan it.
+                media_content = self._decrypt_file(content, metadata)
+                scan_filename = self._write_file_to_disk(
+                    str(uuid.uuid4()), media_content
+                )
+
+                # Remove source file now we've decrypted it.
+                removal_command_parts = self._removal_command.split()
+                removal_command_parts.append(file_path)
+                subprocess.run(removal_command_parts)
+
+        try:
+            # Check the file's MIME type to see if it's allowed.
+            self._check_mimetype(scan_filename)
+
+            # Scan the file and see if the result is positive or negative.
+            exit_code = await self._run_scan(scan_filename)
+            result = exit_code == 0
+
+            # Delete the file now that we've scanned it.
+            logger.info("Scan has finished, removing file")
+        finally:
+            removal_command_parts = self._removal_command.split()
+            removal_command_parts.append(scan_filename)
+            subprocess.run(removal_command_parts)
+
+        # Raise an error if the result isn't clean.
+        if result is False:
+            raise FileDirtyError(cacheable=False)
+
     async def _scan_media(
         self,
         media: MediaDescription,
@@ -340,29 +391,32 @@ class Scanner:
             # If the file is encrypted, we need to decrypt it before we can scan it.
             media_content = self._decrypt_file(media_content, metadata)
 
-        # Check the file's MIME type to see if it's allowed.
-        self._check_mimetype(media_content)
-
         # Write the file to disk.
         file_path = self._write_file_to_disk(media_path, media_content)
 
-        # Scan the file and see if the result is positive or negative.
-        exit_code = await self._run_scan(file_path)
-        result = exit_code == 0
+        try:
+            # Check the file's MIME type to see if it's allowed.
+            self._check_mimetype(file_path)
 
-        # If the exit code isn't part of the ones we should ignore, cache the result.
-        cacheable = True
-        if exit_code in self._exit_codes_to_ignore:
-            logger.info(
-                "Scan returned exit code %d which must not be cached", exit_code
-            )
-            cacheable = False
+            # Scan the file and see if the result is positive or negative.
+            exit_code = await self._run_scan(file_path)
+            result = exit_code == 0
 
-        # Delete the file now that we've scanned it.
-        logger.info("Scan has finished, removing file")
-        removal_command_parts = self._removal_command.split()
-        removal_command_parts.append(file_path)
-        subprocess.run(removal_command_parts)
+            # If the exit code isn't part of the ones we should ignore, cache the result.
+            cacheable = True
+            if exit_code in self._exit_codes_to_ignore:
+                logger.info(
+                    "Scan returned exit code %d which must not be cached", exit_code
+                )
+                cacheable = False
+
+            logger.info("Scan has finished")
+        finally:
+            # Delete the file now that we've scanned it.
+            logger.info("Removing file")
+            removal_command_parts = self._removal_command.split()
+            removal_command_parts.append(file_path)
+            subprocess.run(removal_command_parts)
 
         # Raise an error if the result isn't clean.
         if result is False:
@@ -434,6 +488,30 @@ class Scanner:
                 info=str(e),
             )
 
+    async def write_multipart_to_disk(self, multipart: BodyPartReader) -> str:
+        """
+        Writes a multipart file body to the store directory.
+
+        Returns:
+            The full file path to the file.
+        """
+        filename = str(uuid.uuid4())
+        # Figure out the full absolute path for this file.
+        full_path = self._store_directory.joinpath(filename).resolve()
+        logger.info("Writing multipart file to %s", full_path)
+
+        # Create any directory we need.
+        os.makedirs(full_path.parent, exist_ok=True)
+
+        with open(full_path, "wb") as fp:
+            while True:
+                chunk = await multipart.read_chunk()
+                if not chunk:
+                    break
+                fp.write(chunk)
+
+        return str(full_path)
+
     def _write_file_to_disk(self, media_path: str, body: bytes) -> str:
         """Writes the given content to disk. The final file name will be a concatenation
         of `temp_directory` and the media's `server_name/media_id` path.
@@ -495,16 +573,15 @@ class Scanner:
 
             return retcode
 
-    def _check_mimetype(self, media_content: bytes) -> None:
-        """Detects the MIME type of the provided bytes, and checks that this type is allowed
+    def _check_mimetype(self, filepath: str) -> None:
+        """Detects the MIME type of the provided file, and checks that this type is allowed
         (if an allow list is provided in the configuration)
         Args:
-            media_content: The file's content. If the file is encrypted, this is its
-                decrypted content.
+            filepath: The full file path.
         Raises:
             FileMimeTypeForbiddenError if one of the checks fail.
         """
-        detected_mimetype = magic.from_buffer(media_content, mime=True)
+        detected_mimetype = magic.from_file(filepath, mime=True)
         logger.debug("Detected MIME type for file is %s", detected_mimetype)
 
         # If there's an allow list for MIME types, check that the MIME type that's been

@@ -180,6 +180,31 @@ async def get_media_metadata_from_request(
     return media_path, metadata
 
 
+async def get_media_metadata_from_filebody(
+    file_body: JsonDict,
+    crypto_handler: crypto.CryptoHandler,
+) -> JsonDict:
+    """Extracts, optionally decrypts, and validates encrypted file metadata from a
+    request body.
+
+    Args:
+        request: The request to extract the data from.
+        crypto_handler: The crypto handler to use if we need to decrypt an Olm-encrypted
+            body.
+
+    Raises:
+        ContentScannerRestError(400) if the request's body is None or if the metadata
+            didn't pass schema validation.
+    """
+    metadata = _metadata_from_body(file_body, crypto_handler)
+
+    validate_encrypted_file_metadata(metadata)
+
+    # URL parameter is ignored.
+
+    return metadata
+
+
 def _metadata_from_body(
     body: JsonDict, crypto_handler: crypto.CryptoHandler
 ) -> JsonDict:
