@@ -88,6 +88,7 @@ _config_schema = {
                     "type": "object",
                     "additionalProperties": {"type": "string"},
                 },
+                "headers_to_forward": {"type": "array", "items": {"type": "string"}},
             },
         },
         "crypto": {
@@ -152,6 +153,7 @@ class DownloadConfig:
     base_homeserver_url: Optional[str] = None
     proxy: Optional[str] = None
     additional_headers: Optional[Dict[str, str]] = None
+    headers_to_forward: Optional[List[str]] = None
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)

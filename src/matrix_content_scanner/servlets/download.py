@@ -5,6 +5,7 @@
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import web
+from multidict import MultiMapping
 
 from matrix_content_scanner.servlets import (
     _BytesResponse,
@@ -25,11 +26,12 @@ class DownloadHandler:
     async def _scan(
         self,
         media_path: str,
+        req_headers: MultiMapping[str],
         metadata: Optional[JsonDict] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, _BytesResponse]:
         media = await self._scanner.scan_file(
-            media_path, metadata, auth_header=auth_header
+            media_path, req_headers, metadata, auth_header=auth_header
         )
 
         return 200, _BytesResponse(
@@ -42,7 +44,9 @@ class DownloadHandler:
         """Handles GET requests to ../download/serverName/mediaId"""
         media_path = request.match_info["media_path"]
         return await self._scan(
-            media_path, auth_header=request.headers.get("Authorization")
+            media_path,
+            request.headers,
+            auth_header=request.headers.get("Authorization"),
         )
 
     @web_handler
@@ -55,5 +59,8 @@ class DownloadHandler:
         )
 
         return await self._scan(
-            media_path, metadata, auth_header=request.headers.get("Authorization")
+            media_path,
+            request.headers,
+            metadata,
+            auth_header=request.headers.get("Authorization"),
         )
