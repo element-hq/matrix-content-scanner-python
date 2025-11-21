@@ -117,6 +117,7 @@ class Scanner:
 
         Args:
             media_path: The `server_name/media_id` path for the media.
+            req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
@@ -192,6 +193,7 @@ class Scanner:
         Args:
             cache_key: The key to use to cache the result of the scan in the result cache.
             media_path: The `server_name/media_id` path for the media.
+            req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail

@@ -9,7 +9,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import aiohttp
-from multidict import CIMultiDictProxy, MultiDict, MultiMapping
+from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import (
@@ -63,6 +63,8 @@ class FileDownloader:
 
         Args:
             media_path: The path identifying the media to retrieve.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
             auth_header: If present, we forward the given Authorization header, this is
@@ -196,6 +198,8 @@ class FileDownloader:
 
         Args:
             url: The URL to query.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             thumbnail_params: Query parameters used if the request is for a thumbnail.
             auth_header: If present, we forward the given Authorization header, this is
                 required for authenticated media endpoints.
@@ -369,6 +373,8 @@ class FileDownloader:
         Args:
             url: The URL to send requests to.
             query: Optional parameters to use in the request's query string.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             auth_header: If present, we forward the given Authorization header, this is
                 required for authenticated media endpoints.
 
@@ -382,7 +388,7 @@ class FileDownloader:
         try:
             logger.info("Sending GET request to %s", url)
 
-            headers: MultiDict[str] = MultiDict()
+            headers: CIMultiDict[str] = CIMultiDict()
             headers.update(self._additional_headers)
             if req_headers:
                 for header_name in self._headers_to_forward:
