@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 # Please see LICENSE files in the repository root for full details.
+from base64 import b64decode
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import attr
@@ -11,6 +13,7 @@ from jsonschema import ValidationError, validate
 from matrix_content_scanner.utils.errors import ConfigError
 
 _ONE_WEEK_SECONDS = 604800.0
+_X25519_PRIVATE_KEY_BYTES = 32
 
 
 def _parse_duration(duration: Optional[Union[str, float]]) -> Optional[float]:
@@ -93,11 +96,10 @@ _config_schema = {
         },
         "crypto": {
             "type": "object",
-            "required": ["pickle_path", "pickle_key"],
+            "required": ["request_secret_path"],
             "additionalProperties": False,
             "properties": {
-                "pickle_path": {"type": "string"},
-                "pickle_key": {"type": "string"},
+                "request_secret_path": {"type": "string"},
             },
         },
         "result_cache": {
@@ -160,8 +162,23 @@ class DownloadConfig:
 class CryptoConfig:
     """Configuration for decrypting encrypted bodies."""
 
-    pickle_path: str
-    pickle_key: str
+    request_secret_path: Path = attr.field(converter=Path)
+
+    def get_request_secret(self) -> bytes:
+        """Get the request secret.
+
+        Throws:
+            FileNotFoundError: File under `request_secret_path` can’t be read.
+            ValueError: File content is not a valid secret.
+        """
+        base64secret = self.request_secret_path.read_text()
+        secret = b64decode(base64secret, validate=True)
+        if len(secret) != _X25519_PRIVATE_KEY_BYTES:
+            raise ValueError(
+                "Request secret must be of exactly "
+                f"{_X25519_PRIVATE_KEY_BYTES} bytes, was {len(secret)}."
+            )
+        return secret
 
 
 class MatrixContentScannerConfig:

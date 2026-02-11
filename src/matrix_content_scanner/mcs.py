@@ -38,9 +38,7 @@ class MatrixContentScanner:
 
     @cached_property
     def crypto_handler(self) -> crypto.CryptoHandler:
-        return crypto.CryptoHandler(
-            self.config.crypto.pickle_key, self.config.crypto.pickle_path
-        )
+        return crypto.CryptoHandler(self.config.crypto.get_request_secret())
 
     def start(self) -> None:
         http_server = HTTPServer(self)
@@ -94,11 +92,11 @@ def main() -> None:
 
     setup_logging()
 
-    # Construct the crypto handler early on, so we can make sure we can load the Olm key
-    # pair from the pickle file (or write it if it doesn't already exist).
+    # Construct the crypto handler early on, so we can make sure we can load the
+    # request key from file.
     try:
         _ = mcs.crypto_handler
-    except ConfigError as e:
+    except (ValueError, FileNotFoundError) as e:
         print(e, file=sys.stderr)
         sys.exit(1)
 

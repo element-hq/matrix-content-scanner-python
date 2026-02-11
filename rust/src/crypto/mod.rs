@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
-    fs,
-    io::{Cursor, ErrorKind, Read},
+    io::{Cursor, Read},
 };
 
 use anyhow::{Context, Error};
@@ -14,7 +13,7 @@ use pythonize::depythonize_bound;
 use vodozemac::{
     base64_encode,
     pk_encryption::{self, PkDecryption},
-    Curve25519PublicKey,
+    Curve25519PublicKey, Curve25519SecretKey,
 };
 
 /// Called when registering modules with python.
@@ -37,29 +36,9 @@ pub struct CryptoHandler {
 #[pymethods]
 impl CryptoHandler {
     #[new]
-    pub fn py_new(pickle_key: &str, pickle_path: &str) -> Result<Self, Error> {
-        match fs::read_to_string(pickle_path) {
-            Ok(pickle) => {
-                let decryptor = PkDecryption::from_libolm_pickle(&pickle, pickle_key.as_bytes())?;
-
-                log::info!("Loaded Olm key pair from pickle file {}", pickle_path);
-
-                Ok(Self { decryptor })
-            }
-            Err(e) if e.kind() == ErrorKind::NotFound => {
-                log::info!(
-                        "Pickle file not found, generating a new Olm key pair and storing it in pickle file {}",
-                        pickle_path,
-                    );
-
-                let decryptor = PkDecryption::new();
-                let pickle = decryptor.to_libolm_pickle(pickle_key.as_bytes())?;
-                fs::write(pickle_path, pickle)?;
-                Ok(Self { decryptor })
-            }
-            Err(e) => {
-                Err(e).with_context(|| format!("Failed to read the pickle file at the location configured for crypto.pickle_path ({pickle_path})"))
-            }
+    pub fn py_new(request_secret: [u8; 32]) -> Self {
+        Self {
+            decryptor: PkDecryption::from_key(Curve25519SecretKey::from_slice(&request_secret)),
         }
     }
 
