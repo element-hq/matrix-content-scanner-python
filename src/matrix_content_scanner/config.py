@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 # Please see LICENSE files in the repository root for full details.
+import binascii
 from base64 import b64decode
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -172,7 +173,10 @@ class CryptoConfig:
             ValueError: File content is not a valid secret.
         """
         base64secret = self.request_secret_path.read_text().strip()
-        secret = b64decode(base64secret, validate=True)
+        try:
+            secret = b64decode(base64secret, validate=True)
+        except binascii.Error as e:
+            raise ValueError("Request secret must be valid base64 data.") from e
         if len(secret) != _X25519_PRIVATE_KEY_BYTES:
             raise ValueError(
                 "Request secret must be of exactly "
