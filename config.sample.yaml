@@ -118,6 +118,7 @@ download:
 crypto:
     # Path to the file containing the request secret.
     # The secret is used to derive the key pair for encrypting and decrypting
-    # POST request bodies. Must be base64-encoded and contain exactly 32 bytes.
+    # POST request bodies. The secret itself must be exactly 32 bytes, then 
+    # base64-encoded.
     # Required.
     request_secret_path: "./request_secret"

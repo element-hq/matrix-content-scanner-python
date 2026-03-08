@@ -93,7 +93,7 @@ def main() -> None:
     setup_logging()
 
     # Construct the crypto handler early on, so we can make sure we can load the
-    # request key from file.
+    # request key from a file.
     try:
         _ = mcs.crypto_handler
     except (ValueError, FileNotFoundError) as e:

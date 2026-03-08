@@ -167,11 +167,11 @@ class CryptoConfig:
     def get_request_secret(self) -> bytes:
         """Get the request secret.
 
-        Throws:
+        Raises:
             FileNotFoundError: File under `request_secret_path` can’t be read.
             ValueError: File content is not a valid secret.
         """
-        base64secret = self.request_secret_path.read_text()
+        base64secret = self.request_secret_path.read_text().strip()
         secret = b64decode(base64secret, validate=True)
         if len(secret) != _X25519_PRIVATE_KEY_BYTES:
             raise ValueError(
