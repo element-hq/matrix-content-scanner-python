@@ -22,14 +22,14 @@ class ConfigTestCase(unittest.TestCase):
         )
 
     def test_request_secret_file_malformed(self) -> None:
-        with NamedTemporaryFile() as pickle_key_file:
-            pickle_key_file.write("🙈🙉🙊".encode())
-            pickle_key_file.flush()
+        with NamedTemporaryFile() as request_secret_file:
+            request_secret_file.write("🙈🙉🙊".encode())
+            request_secret_file.flush()
 
             mcs = get_content_scanner(
                 {
                     "crypto": {
-                        "request_secret_path": pickle_key_file.name,
+                        "request_secret_path": request_secret_file.name,
                     },
                 },
             )
@@ -39,14 +39,14 @@ class ConfigTestCase(unittest.TestCase):
             )
 
     def test_request_secret_file_too_short(self) -> None:
-        with NamedTemporaryFile() as pickle_key_file:
-            pickle_key_file.write(b"Rm9ybW8K")
-            pickle_key_file.flush()
+        with NamedTemporaryFile() as request_secret_file:
+            request_secret_file.write(b"Rm9ybW8K")
+            request_secret_file.flush()
 
             mcs = get_content_scanner(
                 {
                     "crypto": {
-                        "request_secret_path": pickle_key_file.name,
+                        "request_secret_path": request_secret_file.name,
                     },
                 },
             )
@@ -56,15 +56,15 @@ class ConfigTestCase(unittest.TestCase):
                 mcs.config.crypto.get_request_secret,
             )
 
-    def test_pickle_key_in_config(self) -> None:
-        with NamedTemporaryFile() as pickle_key_file:
-            pickle_key_file.write(b"8J+Mu/CfjLvwn4y78J+Mu/CfjLvwn4y78J+Mu/CfjLs=")
-            pickle_key_file.flush()
+    def test_request_secret_in_config(self) -> None:
+        with NamedTemporaryFile() as request_secret_file:
+            request_secret_file.write(b"8J+Mu/CfjLvwn4y78J+Mu/CfjLvwn4y78J+Mu/CfjLs=")
+            request_secret_file.flush()
 
             mcs = get_content_scanner(
                 {
                     "crypto": {
-                        "request_secret_path": pickle_key_file.name,
+                        "request_secret_path": request_secret_file.name,
                     },
                 },
             )
