@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import attr
 import magic
-from aiohttp import BodyPartReader
+from aiofile import async_open
 from cachetools import TTLCache
 from canonicaljson import encode_canonical_json
 from humanfriendly import format_size
@@ -361,7 +361,9 @@ class Scanner:
             content = self._decrypt_file(content, metadata)
 
         # Write the file to disk.
-        file_path = self._write_file_to_disk(file_id or str(uuid.uuid4()), content)
+        file_path = await self._write_file_to_disk(
+            file_id or str(uuid.uuid4()), content
+        )
 
         try:
             # Check the file's MIME type to see if it's allowed.
@@ -483,31 +485,7 @@ class Scanner:
                 info=str(e),
             )
 
-    async def write_multipart_to_disk(self, multipart: BodyPartReader) -> str:
-        """
-        Writes a multipart file body to the store directory.
-
-        Returns:
-            The full file path to the file.
-        """
-        filename = str(uuid.uuid4())
-        # Figure out the full absolute path for this file.
-        full_path = self._store_directory.joinpath(filename).resolve()
-        logger.info("Writing multipart file to %s", full_path)
-
-        # Create any directory we need.
-        os.makedirs(full_path.parent, exist_ok=True)
-
-        with open(full_path, "wb") as fp:
-            while True:
-                chunk = await multipart.read_chunk()
-                if not chunk:
-                    break
-                fp.write(chunk)
-
-        return str(full_path)
-
-    def _write_file_to_disk(self, media_path: str, body: bytes) -> str:
+    async def _write_file_to_disk(self, media_path: str, body: bytes) -> str:
         """Writes the given content to disk. The final file name will be a concatenation
         of `temp_directory` and the media's `server_name/media_id` path.
 
@@ -537,8 +515,16 @@ class Scanner:
         # Create any directory we need.
         os.makedirs(full_path.parent, exist_ok=True)
 
-        with open(full_path, "wb") as fp:
-            fp.write(body)
+        try:
+            async with async_open(full_path, "wb") as fp:
+                await fp.write(body if isinstance(body, bytes) else bytes(body))
+        except Exception:
+            # Delete the file if the write fails.
+            try:
+                os.unlink(full_path)
+            except OSError:
+                pass
+            raise
 
         return str(full_path)
 
