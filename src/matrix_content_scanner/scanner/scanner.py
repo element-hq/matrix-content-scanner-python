@@ -311,54 +311,73 @@ class Scanner:
 
         return media
 
-    async def scan_file_on_disk(
-        self, file_path: str, metadata: Optional[JsonDict] = None
+    async def scan_content(
+        self, content: bytes, metadata: Optional[JsonDict] = None
     ) -> None:
-        """Scan a file that already exists on disk. The file will be deleted after scanning.
+        """Scan raw file bytes. The content is written to disk once (decrypted if
+        needed), scanned, and cleaned up.
 
-        This does not cache the result.
+        This does not use the result cache or concurrent-request deduplication.
 
         Args:
-            file_path: The full file path to the source file.
-            metadata: The metadata attached to the file (e.g. decryption key), or None if
-                the file isn't encrypted.
+            content: The raw file bytes (possibly still encrypted).
+            metadata: The metadata attached to the file (e.g. decryption key), or None
+                if the file isn't encrypted.
 
         Raises:
             FileDirtyError if the result of the scan said that the file is dirty.
         """
-        scan_filename = file_path
-        if metadata is not None:
-            with open(file_path, "rb") as f:
-                content = f.read()
-                # If the file is encrypted, we need to decrypt it before we can scan it.
-                media_content = self._decrypt_file(content, metadata)
-                scan_filename = self._write_file_to_disk(
-                    str(uuid.uuid4()), media_content
-                )
+        exit_code = await self._do_scan(content, metadata)
+        result = exit_code == 0
 
-                # Remove source file now we've decrypted it.
-                removal_command_parts = self._removal_command.split()
-                removal_command_parts.append(file_path)
-                subprocess.run(removal_command_parts)
+        cacheable = exit_code not in self._exit_codes_to_ignore
+
+        if result is False:
+            raise FileDirtyError(cacheable=cacheable)
+
+    async def _do_scan(
+        self,
+        content: bytes,
+        metadata: Optional[JsonDict] = None,
+        file_id: Optional[str] = None,
+    ) -> int:
+        """Core scan pipeline shared by all request paths.
+
+        Handles: decrypt (if needed) → write to disk → mimetype check → scan → cleanup.
+
+        Args:
+            content: The raw file bytes (encrypted or plaintext).
+            metadata: Decryption metadata, or None if the file is unencrypted.
+            file_id: Identifier used as the temp filename on disk. If None, a random
+                UUID is generated. Passing the media_path (server_name/media_id)
+                preserves the original directory structure for traceability.
+
+        Returns:
+            The exit code from the scan script (0 = clean).
+        """
+        # Decrypt the content if necessary.
+        if metadata is not None:
+            # If the file is encrypted, we need to decrypt it before we can scan it.
+            content = self._decrypt_file(content, metadata)
+
+        # Write the file to disk.
+        file_path = self._write_file_to_disk(file_id or str(uuid.uuid4()), content)
 
         try:
             # Check the file's MIME type to see if it's allowed.
-            self._check_mimetype(scan_filename)
-
+            self._check_mimetype(file_path)
             # Scan the file and see if the result is positive or negative.
-            exit_code = await self._run_scan(scan_filename)
-            result = exit_code == 0
-
-            # Delete the file now that we've scanned it.
-            logger.info("Scan has finished, removing file")
+            exit_code = await self._run_scan(file_path)
+            # Log the result of the scan.
+            logger.info("Scan has finished")
         finally:
+            # This could be own function.
+            logger.info("Removing file")
             removal_command_parts = self._removal_command.split()
-            removal_command_parts.append(scan_filename)
+            removal_command_parts.append(file_path)
             subprocess.run(removal_command_parts)
 
-        # Raise an error if the result isn't clean.
-        if result is False:
-            raise FileDirtyError(cacheable=False)
+        return exit_code
 
     async def _scan_media(
         self,
@@ -384,41 +403,17 @@ class Scanner:
             FileDirtyError if the result of the scan said that the file is dirty, or if
                 the media path is malformed.
         """
+        exit_code = await self._do_scan(media.content, metadata, file_id=media_path)
+        result = exit_code == 0
 
-        # Decrypt the content if necessary.
-        media_content = media.content
-        if metadata is not None:
-            # If the file is encrypted, we need to decrypt it before we can scan it.
-            media_content = self._decrypt_file(media_content, metadata)
+        # If the exit code isn't part of the ones we should ignore, cache the result.
+        cacheable = True
+        if exit_code in self._exit_codes_to_ignore:
+            logger.info(
+                "Scan returned exit code %d which must not be cached", exit_code
+            )
+            cacheable = False
 
-        # Write the file to disk.
-        file_path = self._write_file_to_disk(media_path, media_content)
-
-        try:
-            # Check the file's MIME type to see if it's allowed.
-            self._check_mimetype(file_path)
-
-            # Scan the file and see if the result is positive or negative.
-            exit_code = await self._run_scan(file_path)
-            result = exit_code == 0
-
-            # If the exit code isn't part of the ones we should ignore, cache the result.
-            cacheable = True
-            if exit_code in self._exit_codes_to_ignore:
-                logger.info(
-                    "Scan returned exit code %d which must not be cached", exit_code
-                )
-                cacheable = False
-
-            logger.info("Scan has finished")
-        finally:
-            # Delete the file now that we've scanned it.
-            logger.info("Removing file")
-            removal_command_parts = self._removal_command.split()
-            removal_command_parts.append(file_path)
-            subprocess.run(removal_command_parts)
-
-        # Raise an error if the result isn't clean.
         if result is False:
             raise FileDirtyError(cacheable=cacheable)
 

@@ -92,7 +92,7 @@ class ScanHandler:
                     file_json, self._crypto_handler
                 )
             elif field.name == "body":
-                body = await self._scanner.write_multipart_to_disk(field)
+                body = await field.read()
 
         if body is None:
             raise ContentScannerRestError(
@@ -102,7 +102,7 @@ class ScanHandler:
         # 'metadata' is optional
 
         try:
-            await self._scanner.scan_file_on_disk(body, metadata)
+            await self._scanner.scan_content(body, metadata)
         except FileDirtyError as e:
             res = {"clean": False, "info": e.info}
         else:
