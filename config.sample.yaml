@@ -109,6 +109,11 @@ download:
     additional_headers:
         user-agent: "matrix-content-scanner"
 
+    # Headers that will be copied from the request received by the content scanner
+    # to the request to the media server.
+    # Optional, defaults to no headers to forward.
+    headers_to_forward: ["Host"]
+
 # Configuration for decrypting Olm-encrypted request bodies.
 crypto:
     # The path to the Olm pickle file. This file contains the key pair to use when

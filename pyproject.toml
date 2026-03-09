@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 # See https://beta.ruff.rs/docs/rules/#error-e

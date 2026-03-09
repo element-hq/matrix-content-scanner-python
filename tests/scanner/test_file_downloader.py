@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, call
 
-from multidict import CIMultiDict, CIMultiDictProxy, MultiDictProxy
+from multidict import CIMultiDict, CIMultiDictProxy, MultiDictProxy, MultiMapping
 
 from matrix_content_scanner.utils.errors import (
     ContentScannerRestError,
@@ -38,6 +38,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
 
         async def _get(
             url: str,
+            req_headers: Optional[MultiMapping[str]] = None,
             query: Optional[MultiDictProxy[str]] = None,
             auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
@@ -161,6 +162,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             self.get_mock.mock_calls[1],
             call(
                 "https://foo/_matrix/media/v3/download/" + MEDIA_PATH,
+                None,
                 query=None,
                 auth_header=None,
             ),
@@ -204,6 +206,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             self.get_mock.mock_calls[0],
             call(
                 "http://my-site.com/_matrix/media/v3/download/" + MEDIA_PATH,
+                None,
                 query=None,
                 auth_header=None,
             ),
@@ -212,6 +215,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             self.get_mock.mock_calls[1],
             call(
                 "http://my-site.com/_matrix/media/r0/download/" + MEDIA_PATH,
+                None,
                 query=None,
                 auth_header=None,
             ),
@@ -240,6 +244,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             self.get_mock.mock_calls[0],
             call(
                 "http://my-site.com/_matrix/client/v1/media/download/" + MEDIA_PATH,
+                None,
                 query=None,
                 auth_header="Bearer access_token",
             ),
@@ -250,7 +255,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         thumbnail are correctly passed on to the homeserver.
         """
         await self.downloader.download_file(
-            MEDIA_PATH, to_thumbnail_params({"height": "50"})
+            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"height": "50"})
         )
 
         url: str = self.get_mock.call_args.args[0]
@@ -264,7 +269,9 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         thumbnail are correctly passed on to the homeserver using authenticated media.
         """
         await self.downloader.download_file(
-            MEDIA_PATH, to_thumbnail_params({"height": "50"}), "Bearer access_token"
+            MEDIA_PATH,
+            thumbnail_params=to_thumbnail_params({"height": "50"}),
+            auth_header="Bearer access_token",
         )
 
         url: str = self.get_mock.call_args.args[0]
@@ -326,6 +333,7 @@ class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
 
         async def _get(
             url: str,
+            req_headers: Optional[MultiMapping[str]] = None,
             query: Optional[MultiDictProxy[str]] = None,
             auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:

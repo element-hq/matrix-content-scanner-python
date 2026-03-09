@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import BodyPartReader, web
+from multidict import MultiMapping
 
 from matrix_content_scanner.servlets import (
     get_media_metadata_from_filebody,
@@ -28,11 +29,14 @@ class ScanHandler:
     async def _scan_and_format(
         self,
         media_path: str,
+        req_headers: MultiMapping[str],
         metadata: Optional[JsonDict] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, JsonDict]:
         try:
-            await self._scanner.scan_file(media_path, metadata, auth_header=auth_header)
+            await self._scanner.scan_file(
+                media_path, req_headers, metadata, auth_header=auth_header
+            )
         except FileDirtyError as e:
             res = {"clean": False, "info": e.info}
         else:
@@ -45,7 +49,9 @@ class ScanHandler:
         """Handles GET requests to ../scan/serverName/mediaId"""
         media_path = request.match_info["media_path"]
         return await self._scan_and_format(
-            media_path, auth_header=request.headers.get("Authorization")
+            media_path,
+            request.headers,
+            auth_header=request.headers.get("Authorization"),
         )
 
     @web_handler
@@ -55,7 +61,10 @@ class ScanHandler:
             request, self._crypto_handler
         )
         return await self._scan_and_format(
-            media_path, metadata, auth_header=request.headers.get("Authorization")
+            media_path,
+            request.headers,
+            metadata,
+            auth_header=request.headers.get("Authorization"),
         )
 
     @web_handler

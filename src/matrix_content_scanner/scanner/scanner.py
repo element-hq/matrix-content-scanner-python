@@ -100,6 +100,7 @@ class Scanner:
     async def scan_file(
         self,
         media_path: str,
+        req_headers: Optional[MultiMapping[str]] = None,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional["MultiMapping[str]"] = None,
         auth_header: Optional[str] = None,
@@ -118,6 +119,7 @@ class Scanner:
 
         Args:
             media_path: The `server_name/media_id` path for the media.
+            req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
@@ -146,7 +148,12 @@ class Scanner:
             # Try to download and scan the file.
             try:
                 res = await self._scan_file(
-                    cache_key, media_path, metadata, thumbnail_params, auth_header
+                    cache_key,
+                    media_path,
+                    req_headers,
+                    metadata,
+                    thumbnail_params,
+                    auth_header,
                 )
                 # Set the future's result, and mark it as done.
                 f.set_result(res)
@@ -171,6 +178,7 @@ class Scanner:
         self,
         cache_key: str,
         media_path: str,
+        req_headers: Optional[MultiMapping[str]] = None,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional[MultiMapping[str]] = None,
         auth_header: Optional[str] = None,
@@ -187,6 +195,7 @@ class Scanner:
         Args:
             cache_key: The key to use to cache the result of the scan in the result cache.
             media_path: The `server_name/media_id` path for the media.
+            req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
             thumbnail_params: If present, then we want to request and scan a thumbnail
@@ -225,6 +234,7 @@ class Scanner:
 
             media = await self._file_downloader.download_file(
                 media_path=media_path,
+                req_headers=req_headers,
                 thumbnail_params=thumbnail_params,
                 auth_header=auth_header,
             )
@@ -259,6 +269,7 @@ class Scanner:
         if media is None:
             media = await self._file_downloader.download_file(
                 media_path=media_path,
+                req_headers=req_headers,
                 thumbnail_params=thumbnail_params,
                 auth_header=auth_header,
             )

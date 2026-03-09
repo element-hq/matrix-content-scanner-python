@@ -9,7 +9,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import aiohttp
-from multidict import CIMultiDictProxy, MultiMapping
+from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.errors import (
@@ -40,15 +40,21 @@ class FileDownloader:
         self._base_url = mcs.config.download.base_homeserver_url
         self._well_known_cache: Dict[str, Optional[str]] = {}
         self._proxy_url = mcs.config.download.proxy
-        self._headers = (
+        self._additional_headers = (
             mcs.config.download.additional_headers
             if mcs.config.download.additional_headers is not None
             else {}
+        )
+        self._headers_to_forward = (
+            mcs.config.download.headers_to_forward
+            if mcs.config.download.headers_to_forward is not None
+            else []
         )
 
     async def download_file(
         self,
         media_path: str,
+        req_headers: Optional[MultiMapping[str]] = None,
         thumbnail_params: Optional[MultiMapping[str]] = None,
         auth_header: Optional[str] = None,
     ) -> MediaDescription:
@@ -57,6 +63,8 @@ class FileDownloader:
 
         Args:
             media_path: The path identifying the media to retrieve.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             thumbnail_params: If present, then we want to request and scan a thumbnail
                 generated with the provided parameters instead of the full media.
             auth_header: If present, we forward the given Authorization header, this is
@@ -90,7 +98,9 @@ class FileDownloader:
 
         # Attempt to retrieve the file at the generated URL.
         try:
-            file = await self._get_file_content(url, thumbnail_params, auth_header)
+            file = await self._get_file_content(
+                url, req_headers, thumbnail_params, auth_header
+            )
         except _PathNotFoundException:
             if auth_media:
                 raise ContentScannerRestError(
@@ -107,7 +117,9 @@ class FileDownloader:
             url = await self._build_https_url(media_path, prefix, "r0")
 
             try:
-                file = await self._get_file_content(url, thumbnail_params, auth_header)
+                file = await self._get_file_content(
+                    url, req_headers, thumbnail_params, auth_header
+                )
             except _PathNotFoundException:
                 # If that still failed, raise an error.
                 raise ContentScannerRestError(
@@ -178,13 +190,16 @@ class FileDownloader:
     async def _get_file_content(
         self,
         url: str,
-        thumbnail_params: Optional[MultiMapping[str]],
+        req_headers: Optional[MultiMapping[str]] = None,
+        thumbnail_params: Optional[MultiMapping[str]] = None,
         auth_header: Optional[str] = None,
     ) -> MediaDescription:
         """Retrieve the content of the file at a given URL.
 
         Args:
             url: The URL to query.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             thumbnail_params: Query parameters used if the request is for a thumbnail.
             auth_header: If present, we forward the given Authorization header, this is
                 required for authenticated media endpoints.
@@ -202,7 +217,7 @@ class FileDownloader:
                 meant that the path wasn't understood.
         """
         code, body, headers = await self._get(
-            url, query=thumbnail_params, auth_header=auth_header
+            url, req_headers, query=thumbnail_params, auth_header=auth_header
         )
 
         logger.info("Remote server responded with %d", code)
@@ -349,6 +364,7 @@ class FileDownloader:
     async def _get(
         self,
         url: str,
+        req_headers: Optional[MultiMapping[str]] = None,
         query: Optional[MultiMapping[str]] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
@@ -357,6 +373,8 @@ class FileDownloader:
         Args:
             url: The URL to send requests to.
             query: Optional parameters to use in the request's query string.
+            req_headers: The headers of the request that triggered this file download, if any.
+                Will be used to honor `headers_to_forward` setting.
             auth_header: If present, we forward the given Authorization header, this is
                 required for authenticated media endpoints.
 
@@ -369,16 +387,23 @@ class FileDownloader:
         """
         try:
             logger.info("Sending GET request to %s", url)
-            async with aiohttp.ClientSession() as session:
-                if auth_header is not None:
-                    request_headers = {"Authorization": auth_header, **self._headers}
-                else:
-                    request_headers = self._headers
 
+            headers: CIMultiDict[str] = CIMultiDict()
+            headers.update(self._additional_headers)
+            if req_headers:
+                for header_name in self._headers_to_forward:
+                    values = req_headers.getall(header_name)
+                    for value in values:
+                        headers.add(header_name, value)
+
+            if auth_header is not None:
+                headers.add("Authorization", auth_header)
+
+            async with aiohttp.ClientSession() as session:
                 async with session.get(
                     url,
                     proxy=self._proxy_url,
-                    headers=request_headers,
+                    headers=headers,
                     params=query,
                 ) as resp:
                     return resp.status, await resp.read(), resp.headers

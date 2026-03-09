@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock
 
-from multidict import CIMultiDict, CIMultiDictProxy
+from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 
 from matrix_content_scanner.scanner.scanner import CacheEntry
 from matrix_content_scanner.utils.constants import ErrCode
@@ -41,6 +41,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         async def download_file(
             media_path: str,
+            req_headers: Optional[MultiMapping[str]] = None,
             thumbnail_params: Optional[Dict[str, List[str]]] = None,
             auth_header: Optional[str] = None,
         ) -> MediaDescription:
@@ -73,7 +74,9 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         """
         self._setup_encrypted()
 
-        media = await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        media = await self.scanner.scan_file(
+            MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA
+        )
         self.assertEqual(media.content, SMALL_PNG_ENCRYPTED)
 
     async def test_cache(self) -> None:
@@ -94,12 +97,14 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         self._setup_encrypted()
 
         # Scan the file a first time, and check that the downloader has been called.
-        await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        await self.scanner.scan_file(MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA)
         self.assertEqual(self.downloader_mock.call_count, 1)
 
         # Scan the file a second time, and check that the downloader has not been called
         # this time, and that the media returned is the encrypted copy.
-        media = await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        media = await self.scanner.scan_file(
+            MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA
+        )
         self.assertEqual(self.downloader_mock.call_count, 1)
         self.assertEqual(media.content, SMALL_PNG_ENCRYPTED)
 
@@ -205,7 +210,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
         self._setup_encrypted()
 
         # Scan the file and check that the downloader was called.
-        await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+        await self.scanner.scan_file(MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA)
         self.assertEqual(self.downloader_mock.call_count, 1)
 
         # Copy the file metadata and change the key.
@@ -214,7 +219,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         # This causes the scanner to not be able to decrypt the file.
         with self.assertRaises(ContentScannerRestError) as cm:
-            await self.scanner.scan_file(MEDIA_PATH, modified_metadata)
+            await self.scanner.scan_file(MEDIA_PATH, metadata=modified_metadata)
 
         self.assertEqual(cm.exception.http_status, 400)
         self.assertEqual(cm.exception.reason, ErrCode.FAILED_TO_DECRYPT)
@@ -244,7 +249,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         # Check that the scan fails since the file is a PNG.
         with self.assertRaises(FileMimeTypeForbiddenError):
-            await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+            await self.scanner.scan_file(MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA)
 
     async def test_blocklist_mimetype(self) -> None:
         """Tests that, if there's an allow list for MIME types and the file's MIME type
@@ -268,7 +273,7 @@ class ScannerTestCase(IsolatedAsyncioTestCase):
 
         # Check that the scan fails since the file is a PNG.
         with self.assertRaises(FileMimeTypeForbiddenError):
-            await self.scanner.scan_file(MEDIA_PATH, ENCRYPTED_FILE_METADATA)
+            await self.scanner.scan_file(MEDIA_PATH, metadata=ENCRYPTED_FILE_METADATA)
 
     async def test_blocklist_mimetype_fallback_binary_file(self) -> None:
         """Tests that unrecognised binary files' MIME type is assumed to be

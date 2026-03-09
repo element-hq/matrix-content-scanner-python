@@ -25,6 +25,7 @@ class ThumbnailHandler:
 
         media = await self._scanner.scan_file(
             media_path=media_path,
+            req_headers=request.headers,
             thumbnail_params=request.query,
             auth_header=request.headers.get("Authorization"),
         )
