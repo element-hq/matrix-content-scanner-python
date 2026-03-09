@@ -200,7 +200,8 @@ async def get_media_metadata_from_filebody(
 
     validate_encrypted_file_metadata(metadata)
 
-    # URL parameter is ignored.
+    # Unlike get_media_metadata_from_request, we intentionally skip extracting
+    # the file URL from the metadata because the caller already has the media content.
 
     return metadata
 
