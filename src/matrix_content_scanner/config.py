@@ -170,7 +170,8 @@ class CryptoConfig:
 
         Raises:
             FileNotFoundError: File under `request_secret_path` can’t be read.
-            ValueError: File content is not a valid secret.
+            ValueError: File content is not a valid secret or isn't
+                base64-encoded.
         """
         base64secret = self.request_secret_path.read_text().strip()
         try:
