@@ -9,7 +9,6 @@ __pycache__
 config.yaml
 /build
 /.vscode
-mcs_pickle.txt
 pickle
 
 # Poetry will create a setup.py, which we don't want to include.

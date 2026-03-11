@@ -117,8 +117,7 @@ def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScann
             "port": 8080,
         },
         "crypto": {
-            "pickle_path": "mcs_pickle.txt",
-            "pickle_key": "foo",
+            "request_secret_path": "tests/testdata/request_secret",
         },
     }
 
