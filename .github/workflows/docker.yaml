@@ -7,9 +7,8 @@ on:
     tags: ["v*"]
   workflow_dispatch: # A build was manually requested
 
-permissions:
-  contents: read
-  id-token: write # needed for signing the images with GitHub OIDC Token
+# Disable all permissions for the GITHUB_TOKEN access token by default.
+permissions: {}
 
 jobs:
   build:
@@ -32,6 +31,9 @@ jobs:
           tags: |
             type=raw,value=latest
             type=pep440,pattern={{raw}}
+        permissions:
+          # Read git details about the repository
+          contents: read
 
       - name: Build and push all platforms
         id: build-and-push
@@ -53,3 +55,6 @@ jobs:
             images+="${tag}@${DIGEST} "
           done
           cosign sign --yes ${images}
+        permissions:
+          # needed for signing the images with GitHub OIDC Token
+          id-token: write 

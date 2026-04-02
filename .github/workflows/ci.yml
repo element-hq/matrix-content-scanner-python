@@ -7,6 +7,9 @@ on:
 env:
   RUST_VERSION: 1.82.0
 
+# Disable all permissions for the GITHUB_TOKEN access token by default.
+permissions: {}
+
 jobs:
   check-code-style:
     name: Check code style
