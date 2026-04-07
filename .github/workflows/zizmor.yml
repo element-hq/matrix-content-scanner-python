@@ -1,3 +1,4 @@
+# Taken from https://github.com/zizmorcore/zizmor-action/blob/main/README.md
 name: GitHub Actions Security Analysis with zizmor 🌈
 
 on:
