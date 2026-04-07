@@ -7,26 +7,30 @@ on:
     tags: ["v*"]
   workflow_dispatch: # A build was manually requested
 
-permissions:
-  contents: read
-  id-token: write # needed for signing the images with GitHub OIDC Token
+# Disable all permissions for the GITHUB_TOKEN access token by default.
+permissions: {}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # Read git details about the repository
+      contents: read
+      # needed for signing the images with GitHub OIDC Token
+      id-token: write 
     steps:
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: Log in to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Calculate docker image tag
         id: set-tag
-        uses: docker/metadata-action@master
+        uses: docker/metadata-action@c3b064c6d7c32446d6bc214ea075f1caad2de35a # master
         with:
           images: vectorim/matrix-content-scanner
           tags: |
@@ -35,7 +39,7 @@ jobs:
 
       - name: Build and push all platforms
         id: build-and-push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3
         with:
           push: true
           labels: "gitsha1=${{ github.sha }}"
