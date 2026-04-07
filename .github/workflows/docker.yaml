@@ -13,6 +13,11 @@ permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # Read git details about the repository
+      contents: read
+      # needed for signing the images with GitHub OIDC Token
+      id-token: write 
     steps:
       - name: Install Cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
@@ -31,9 +36,6 @@ jobs:
           tags: |
             type=raw,value=latest
             type=pep440,pattern={{raw}}
-        permissions:
-          # Read git details about the repository
-          contents: read
 
       - name: Build and push all platforms
         id: build-and-push
@@ -55,6 +57,3 @@ jobs:
             images+="${tag}@${DIGEST} "
           done
           cosign sign --yes ${images}
-        permissions:
-          # needed for signing the images with GitHub OIDC Token
-          id-token: write 
