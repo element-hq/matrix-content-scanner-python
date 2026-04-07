@@ -13,6 +13,8 @@ jobs:
   zizmor:
     runs-on: ubuntu-latest
     permissions:
+      # Needed to upload SARIF results.
+      # https://docs.github.com/en/code-security/reference/code-scanning/sarif-files/troubleshoot-sarif-uploads/missing-token
       security-events: write
     steps:
       - name: Checkout repository
