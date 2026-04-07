@@ -23,7 +23,7 @@ jobs:
         run: rustup toolchain install ${{ env.RUST_VERSION }}
 
       - name: Setup Poetry
-        uses: matrix-org/setup-python-poetry@a82e526ebef97ec2d5000e220beb07aaadfda595 # v1
+        uses: matrix-org/setup-python-poetry@5bbf6603c5c930615ec8a29f1b5d7d258d905aa4 # v2.0.0
         with:
           python-version: "3.13"
           install-project: "false"
@@ -47,7 +47,7 @@ jobs:
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Setup Poetry
-        uses: matrix-org/setup-python-poetry@a82e526ebef97ec2d5000e220beb07aaadfda595 # v1
+        uses: matrix-org/setup-python-poetry@5bbf6603c5c930615ec8a29f1b5d7d258d905aa4 # v2.0.0
         with:
           python-version: "3.13"
           # We have seen odd mypy failures that were resolved when we started
