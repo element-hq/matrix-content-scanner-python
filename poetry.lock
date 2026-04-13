@@ -1153,14 +1153,14 @@ files = [
 
 [[package]]
 name = "types-humanfriendly"
-version = "10.0.1.11"
+version = "10.0.1.20250319"
 description = "Typing stubs for humanfriendly"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "types-humanfriendly-10.0.1.11.tar.gz", hash = "sha256:c87b2eb8ec2ab1ae51cb3cc2c0efee31622a6711b2a7627d8109e22b4cfd4366"},
-    {file = "types_humanfriendly-10.0.1.11-py3-none-any.whl", hash = "sha256:c0ca654b16ff36ed4c059152085a76c9909272f5ea6ac03cdb7e59b5dcd392c7"},
+    {file = "types_humanfriendly-10.0.1.20250319-py3-none-any.whl", hash = "sha256:0fec93cc793b91309481ed4bb9bed178ffde0076026fb3ac1cc3299ad7ecbc46"},
+    {file = "types_humanfriendly-10.0.1.20250319.tar.gz", hash = "sha256:452aa1abbfff88a44cd9985eb459555bb1eae0cdd7bc084269146bfdbf1ff31d"},
 ]
 
 [[package]]
