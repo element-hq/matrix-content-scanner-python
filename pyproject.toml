@@ -108,7 +108,7 @@ setuptools_rust = ">=1.3"
 ruff = "^0.15.7"
 # for type checking
 mypy = "*"
-types-jsonschema = ">=3.2.0"
+types-jsonschema = ">=4.26.0.20260325"
 types-PyYAML = ">=5.4.10"
 types-cachetools = "*"
 types-humanfriendly = "*"
