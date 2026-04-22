@@ -30,7 +30,7 @@ jobs:
 
       - name: Calculate docker image tag
         id: set-tag
-        uses: docker/metadata-action@c3b064c6d7c32446d6bc214ea075f1caad2de35a # master
+        uses: docker/metadata-action@deaa0dee567db6b95038c14152b037af85a8fe3b # master
         with:
           images: vectorim/matrix-content-scanner
           tags: |
