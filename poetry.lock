@@ -6,6 +6,7 @@ version = "3.9.0"
 description = "Asynchronous file operations."
 optional = false
 python-versions = "<4,>=3.8"
+groups = ["main"]
 files = [
     {file = "aiofile-3.9.0-py3-none-any.whl", hash = "sha256:ce2f6c1571538cbdfa0143b04e16b208ecb0e9cb4148e528af8a640ed51cc8aa"},
     {file = "aiofile-3.9.0.tar.gz", hash = "sha256:e5ad718bb148b265b6df1b3752c4d1d83024b93da9bd599df74b9d9ffcf7919b"},
@@ -228,6 +229,7 @@ version = "0.9.25"
 description = "Asynchronous file IO for Linux MacOS or Windows."
 optional = false
 python-versions = ">=3.10"
+groups = ["main"]
 files = [
     {file = "caio-0.9.25-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ca6c8ecda611478b6016cb94d23fd3eb7124852b985bdec7ecaad9f3116b9619"},
     {file = "caio-0.9.25-cp310-cp310-manylinux2010_x86_64.manylinux2014_x86_64.manylinux_2_12_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:db9b5681e4af8176159f0d6598e73b2279bb661e718c7ac23342c550bd78c241"},
@@ -1397,4 +1399,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10.0"
-content-hash = "6501dd3d0b7333a4a8758b6e5238f8a48177bd48f36c1195a214364c50f0b002"
+content-hash = "83cc15a9f14f8f5ee13943bcfe2486ac8615ed06f524c8e36793aaf35e990573"
