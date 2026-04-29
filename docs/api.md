@@ -128,6 +128,97 @@ Downloads a specified encrypted file, decrypts it and then behaves identically t
 The request body for this route is the same as for
 `POST /_matrix/media_proxy/unstable/download_encrypted`.
 
+### `POST /_matrix/media_proxy/unstable/scan_file`
+
+Scans a file directly without downloading it from a Matrix homeserver. The file
+content is sent in the request body as a `multipart/form-data` upload.
+
+#### Request
+
+The request must use `Content-Type: multipart/form-data` with the following parts:
+
+| Part name | Required | Type | Description |
+|-----------|----------|-a-----|-------------|
+| `body`    | **Yes**  | Binary (file content) | The raw file to scan. |
+| `file`    | No       | JSON string | Decryption metadata for an encrypted file. Follows the [`EncryptedFile`](https://spec.matrix.org/v1.2/client-server-api/#extensions-to-mroommessage-msgtypes) structure from the Matrix specification. Only needed when the file in `body` is encrypted. |
+
+#### Request examples
+
+Scan an unencrypted file with `curl`:
+
+```bash
+curl -X POST \
+  http://localhost:8080/_matrix/media_proxy/unstable/scan_file \
+  -F "body=@document.pdf;type=application/pdf"
+```
+
+Scan an encrypted file (provide decryption metadata via the `file` part):
+
+```bash
+curl -X POST \
+  http://localhost:8080/_matrix/media_proxy/unstable/scan_file \
+  -F "body=@encrypted_file.bin;type=application/octet-stream" \
+  -F "file={\"v\":\"v2\",\"key\":{...},\"iv\":\"...\",\"hashes\":{...}};type=application/json"
+```
+
+Scan a file with Python (`requests`):
+
+```python
+import requests
+
+resp = requests.post(
+    "http://localhost:8080/_matrix/media_proxy/unstable/scan_file",
+    files={"body": ("image.png", open("image.png", "rb"), "image/png")},
+)
+print(resp.json())  # {"clean": true, "info": "File is clean"}
+```
+
+Scan an encrypted file with Python (`requests`), providing decryption metadata via the `file` part:
+
+```python
+import json
+import requests
+
+encrypted_file_metadata = {
+    "v": "v2",
+    "key": {
+        "alg": "A256CTR",
+        "ext": True,
+        "k": "base64-encoded-key",
+        "key_ops": ["encrypt", "decrypt"],
+        "kty": "oct",
+    },
+    "iv": "base64-encoded-iv",
+    "hashes": {
+        "sha256": "base64-encoded-hash",
+    },
+}
+
+resp = requests.post(
+    "http://localhost:8080/_matrix/media_proxy/unstable/scan_file",
+    files={
+        "body": ("encrypted.bin", open("encrypted.bin", "rb"), "application/octet-stream"),
+        "file": ("metadata.json", json.dumps(encrypted_file_metadata), "application/json"),
+    },
+)
+print(resp.json())  # {"clean": true, "info": "File is clean"}
+```
+
+#### Response
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `clean`   | bool | `true` if the file passed the scan, `false` otherwise. |
+| `info`    | str  | Human-readable result description. |
+
+Example response:
+
+```json
+{
+    "clean": false,
+    "info": "***VIRUS DETECTED***"
+}
+```
 
 ### `GET /_matrix/media_proxy/unstable/public_key`
 
