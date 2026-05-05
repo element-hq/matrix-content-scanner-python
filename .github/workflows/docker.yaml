@@ -20,7 +20,7 @@ jobs:
       id-token: write 
     steps:
       - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: Log in to DockerHub
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -30,7 +30,7 @@ jobs:
 
       - name: Calculate docker image tag
         id: set-tag
-        uses: docker/metadata-action@deaa0dee567db6b95038c14152b037af85a8fe3b # master
+        uses: docker/metadata-action@4f5b5234679dfa19837d4942067c97d7df43b7b3 # master
         with:
           images: vectorim/matrix-content-scanner
           tags: |
@@ -39,7 +39,7 @@ jobs:
 
       - name: Build and push all platforms
         id: build-and-push
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           push: true
           labels: "gitsha1=${{ github.sha }}"
