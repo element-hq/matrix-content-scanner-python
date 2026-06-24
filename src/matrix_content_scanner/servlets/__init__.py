@@ -188,7 +188,7 @@ async def get_media_metadata_from_filebody(
     request body.
 
     Args:
-        request: The request to extract the data from.
+        file_body: The JSON object from the multipart `file` part.
         crypto_handler: The crypto handler to use if we need to decrypt an Olm-encrypted
             body.
 

@@ -138,9 +138,9 @@ content is sent in the request body as a `multipart/form-data` upload.
 The request must use `Content-Type: multipart/form-data` with the following parts:
 
 | Part name | Required | Type | Description |
-|-----------|----------|-a-----|-------------|
+|-----------|----------|------|-------------|
 | `body`    | **Yes**  | Binary (file content) | The raw file to scan. |
-| `file`    | No       | JSON string | Decryption metadata for an encrypted file. Follows the [`EncryptedFile`](https://spec.matrix.org/v1.2/client-server-api/#extensions-to-mroommessage-msgtypes) structure from the Matrix specification. Only needed when the file in `body` is encrypted. |
+| `file`    | No       | JSON | Decryption metadata for an encrypted file. Follows the [`EncryptedFile`](https://spec.matrix.org/v1.2/client-server-api/#extensions-to-mroommessage-msgtypes) structure from the Matrix specification. Only needed when the file in `body` is encrypted. |
 
 #### Request examples
 

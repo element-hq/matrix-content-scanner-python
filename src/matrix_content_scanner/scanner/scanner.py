@@ -381,7 +381,6 @@ class Scanner:
             self._check_mimetype(file_path)
             # Scan the file and see if the result is positive or negative.
             exit_code = await self._run_scan(file_path)
-            # Log the result of the scan.
             logger.info("Scan has finished")
         finally:
             # This could be own function.

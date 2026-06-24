@@ -69,14 +69,14 @@ class ScanHandler:
 
     @web_handler
     async def handle_file(self, request: web.Request) -> Tuple[int, JsonDict]:
-        """Handles GET requests to ../scan_file"""
+        """Handles POST requests to ../scan_file"""
         try:
             reader = await request.multipart()
         except Exception:
             raise ContentScannerRestError(
                 400,
                 ErrCode.MALFORMED_MULTIPART,
-                "Request body was not a multipart body.",
+                "Unable to parse request body as multipart.",
             )
 
         body = None
