@@ -5,7 +5,6 @@
 !src
 !README.md
 !pyproject.toml
-!setup.cfg
 !poetry.lock
 !Cargo.toml
 !Cargo.lock
