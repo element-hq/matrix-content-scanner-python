@@ -63,7 +63,7 @@ impl CryptoHandler {
     pub fn encrypt(&self, public_key: &str, payload: &str) -> Result<PkMessage, Error> {
         let encryptor =
             pk_encryption::PkEncryption::from_key(Curve25519PublicKey::from_base64(public_key)?);
-        Ok(PkMessage(encryptor.encrypt(payload.as_bytes())))
+        Ok(PkMessage(encryptor.encrypt(payload.as_bytes())?))
     }
 }
 
