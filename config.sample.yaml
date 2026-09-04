@@ -119,12 +119,9 @@ crypto:
     # Path to the file containing the request secret.
     # The secret is used to derive the key pair for encrypting and decrypting
     # POST request bodies. The secret itself must be an x25519 private key,
-    # consisting of 32 bytes, then base64-encoded.
+    # consisting of 32 random bytes, then base64-encoded.
     # The secret can be generated with:
     #
-    # openssl genpkey -algorithm X25519 -outform DER \
-    # | openssl asn1parse -inform DER -strparse 14 -out /dev/stdout -noout \
-    # | openssl enc -base64 -A > ./path/to/request_secret
-    #
+    # openssl rand -base64 32 > ./path/to/request_secret
     # Required.
     request_secret_path: "./request_secret"
