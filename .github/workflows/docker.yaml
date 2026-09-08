@@ -33,9 +33,17 @@ jobs:
         uses: docker/metadata-action@703896b4f30f62d53f5530a80bcdc589a3f702bc # master
         with:
           images: vectorim/matrix-content-scanner
+          # Don't automatically set the `latest` tag.
+          flavor: |
+            latest=false
+          # Only update the `latest` image tag if we're pushing a git tag.
+          # Otherwise, always push a `sha-xxx` tag.
+          # If no tags are selected, and `push: true` is set below, then this
+          # workflow would fail.
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
             type=pep440,pattern={{raw}}
+            type=sha,prefix=sha-,format=short
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
