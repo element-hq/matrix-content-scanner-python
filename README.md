@@ -130,3 +130,8 @@ Synapse developers (assuming a Unix-like shell):
     python -m build
     twine upload dist/matrix_content_scanner-$version*
     ```
+
+ 9. Double-check that [the docker image build has
+    succeeded](https://github.com/element-hq/matrix-content-scanner-python/actions/workflows/docker.yaml?query=event%3Apush),
+    and that a new image tag for your release version has [appeared on Docker
+    Hub](https://hub.docker.com/r/vectorim/matrix-content-scanner/tags).
