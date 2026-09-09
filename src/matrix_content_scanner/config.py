@@ -58,7 +58,7 @@ def _parse_size(size: Optional[Union[str, float]]) -> Optional[float]:
 # Schema to validate the raw configuration dictionary against.
 _config_schema = {
     "type": "object",
-    "required": ["web", "scan", "crypto"],
+    "required": ["web", "scan", "crypto", "download"],
     "additionalProperties": False,
     "properties": {
         "web": {
@@ -84,6 +84,7 @@ _config_schema = {
         },
         "download": {
             "type": "object",
+            "required": ["base_homeserver_url"],
             "additionalProperties": False,
             "properties": {
                 "base_homeserver_url": {"type": "string"},
@@ -153,7 +154,7 @@ class ResultCacheConfig:
 class DownloadConfig:
     """Configuration for downloading files."""
 
-    base_homeserver_url: Optional[str] = None
+    base_homeserver_url: str
     proxy: Optional[str] = None
     additional_headers: Optional[Dict[str, str]] = None
     headers_to_forward: Optional[List[str]] = None
