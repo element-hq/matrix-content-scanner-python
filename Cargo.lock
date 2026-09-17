@@ -152,6 +152,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -774,9 +780,9 @@ dependencies = [
 
 [[package]]
 name = "hpke"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5130e119706b4d8c2180da6126f7e60b6c38c2d340d539219f57051f0a7af7"
+checksum = "a5324110b02044183df000f0bd7d2d7e61f1000631508627e77f63983b6fdffb"
 dependencies = [
  "aead 0.6.1",
  "chacha20poly1305 0.11.0",
@@ -1058,7 +1064,7 @@ dependencies = [
  "pyo3-log",
  "pythonize",
  "serde_json",
- "vodozemac 0.10.0",
+ "vodozemac 0.11.0",
 ]
 
 [[package]]
@@ -2218,12 +2224,12 @@ dependencies = [
 
 [[package]]
 name = "vodozemac"
-version = "0.10.0"
-source = "git+https://github.com/matrix-org/vodozemac.git#30d27bb5603fdc3e7880fe7477deeb7f0245eef8"
+version = "0.11.0"
+source = "git+https://github.com/matrix-org/vodozemac.git#5f007f448bee6988bd1a61e4b87c055507f233d7"
 dependencies = [
  "aes 0.9.3",
  "arrayvec",
- "base64 0.22.1",
+ "base64 0.23.1",
  "base64ct",
  "cbc 0.2.1",
  "chacha20poly1305 0.11.0",
