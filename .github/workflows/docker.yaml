@@ -30,7 +30,7 @@ jobs:
 
       - name: Calculate docker image tag
         id: set-tag
-        uses: docker/metadata-action@703896b4f30f62d53f5530a80bcdc589a3f702bc # master
+        uses: docker/metadata-action@8e671d84a3bd81afdfc4fdbb96a42b07c2a80934 # master
         with:
           images: vectorim/matrix-content-scanner
           # Don't automatically set the `latest` tag.
