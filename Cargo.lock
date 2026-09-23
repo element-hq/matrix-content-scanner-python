@@ -2225,7 +2225,7 @@ dependencies = [
 [[package]]
 name = "vodozemac"
 version = "0.11.0"
-source = "git+https://github.com/matrix-org/vodozemac.git#5f007f448bee6988bd1a61e4b87c055507f233d7"
+source = "git+https://github.com/matrix-org/vodozemac.git#cdeba8de89a0c48df182ba099a48ce219ed9cf03"
 dependencies = [
  "aes 0.9.3",
  "arrayvec",
