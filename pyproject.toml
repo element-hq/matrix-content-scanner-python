@@ -109,7 +109,7 @@ ruff = "^0.16.5"
 # for type checking
 mypy = "*"
 types-jsonschema = ">=4.26.0.20260518"
-types-PyYAML = ">=6.0.12.20260815"
+types-PyYAML = ">=6.0.12.20260906"
 types-cachetools = "*"
 types-humanfriendly = "*"
 
