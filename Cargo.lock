@@ -1064,7 +1064,7 @@ dependencies = [
  "pyo3-log",
  "pythonize",
  "serde_json",
- "vodozemac 0.11.0",
+ "vodozemac 0.11.1",
 ]
 
 [[package]]
@@ -2224,8 +2224,8 @@ dependencies = [
 
 [[package]]
 name = "vodozemac"
-version = "0.11.0"
-source = "git+https://github.com/matrix-org/vodozemac.git#a9f94462b79629b0e7c8e916f04ee1b8437a7e7b"
+version = "0.11.1"
+source = "git+https://github.com/matrix-org/vodozemac.git#70ad23e8cbb1c7c0ab5884553f49a4e4f05af80b"
 dependencies = [
  "aes 0.9.3",
  "arrayvec",
