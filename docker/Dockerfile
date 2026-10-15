@@ -99,4 +99,5 @@ RUN mkdir /data
 WORKDIR /data
 
 # Start the service using user-provided configuration.
-ENTRYPOINT ["python", "-m", "matrix_content_scanner.mcs", "-c", "/data/config.yaml"]
+ENTRYPOINT ["python", "-m", "matrix_content_scanner.mcs"]
+CMD ["-c", "/data/config.yaml"]
