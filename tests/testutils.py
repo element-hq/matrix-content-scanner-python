@@ -119,6 +119,9 @@ def get_content_scanner(config: Optional[JsonDict] = None) -> MatrixContentScann
         "crypto": {
             "request_secret_path": "tests/testdata/request_secret",
         },
+        "download": {
+            "base_homeserver_url": "http://my-site.com",
+        },
     }
 
     if config is None:
