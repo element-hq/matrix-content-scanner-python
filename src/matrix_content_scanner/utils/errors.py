@@ -53,7 +53,3 @@ class FileMimeTypeForbiddenError(ContentScannerRestError):
 
 class ConfigError(Exception):
     """An error indicating an issue with the configuration file."""
-
-
-class WellKnownDiscoveryError(Exception):
-    """An error indicating a failure when attempting a .well-known discovery."""
