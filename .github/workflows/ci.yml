@@ -44,7 +44,7 @@ jobs:
           persist-credentials: false
       - name: Install Rust
         run: rustup toolchain install ${{ env.RUST_VERSION }}
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Setup Poetry
         uses: matrix-org/setup-python-poetry@5bbf6603c5c930615ec8a29f1b5d7d258d905aa4 # v2.0.0
