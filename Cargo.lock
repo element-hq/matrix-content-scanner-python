@@ -57,6 +57,7 @@ dependencies = [
  "cipher 0.5.2",
  "cpubits",
  "cpufeatures 0.3.1",
+ "zeroize",
 ]
 
 [[package]]
@@ -194,6 +195,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
 dependencies = [
  "hybrid-array",
+ "zeroize",
 ]
 
 [[package]]
@@ -295,6 +297,7 @@ dependencies = [
  "cipher 0.5.2",
  "cpufeatures 0.3.1",
  "rand_core 0.10.1",
+ "zeroize",
 ]
 
 [[package]]
@@ -320,6 +323,7 @@ dependencies = [
  "chacha20 0.10.2",
  "cipher 0.5.2",
  "poly1305 0.9.1",
+ "zeroize",
 ]
 
 [[package]]
@@ -342,6 +346,7 @@ dependencies = [
  "block-buffer 0.12.1",
  "crypto-common 0.2.2",
  "inout 0.2.2",
+ "zeroize",
 ]
 
 [[package]]
@@ -522,6 +527,7 @@ dependencies = [
  "const-oid 0.10.2",
  "crypto-common 0.2.2",
  "ctutils",
+ "zeroize",
 ]
 
 [[package]]
@@ -814,6 +820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "707114b52a152fa7bdb290cd7cd5912d9467273b6d74e21b8d81aca1f8533f6b"
 dependencies = [
  "typenum",
+ "zeroize",
 ]
 
 [[package]]
@@ -1064,7 +1071,7 @@ dependencies = [
  "pyo3-log",
  "pythonize",
  "serde_json",
- "vodozemac 0.11.1",
+ "vodozemac 0.11.2",
 ]
 
 [[package]]
@@ -2224,8 +2231,8 @@ dependencies = [
 
 [[package]]
 name = "vodozemac"
-version = "0.11.1"
-source = "git+https://github.com/matrix-org/vodozemac.git#70ad23e8cbb1c7c0ab5884553f49a4e4f05af80b"
+version = "0.11.2"
+source = "git+https://github.com/matrix-org/vodozemac.git#83b2ef012bdd759ab7e8078077434ee745b8cc31"
 dependencies = [
  "aes 0.9.3",
  "arrayvec",
