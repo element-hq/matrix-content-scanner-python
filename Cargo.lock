@@ -2232,7 +2232,8 @@ dependencies = [
 [[package]]
 name = "vodozemac"
 version = "0.11.2"
-source = "git+https://github.com/matrix-org/vodozemac.git#83b2ef012bdd759ab7e8078077434ee745b8cc31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cafdb6875115a436251b280d741286a9cec7fc4daab0588ea26481dd8e2bab2f"
 dependencies = [
  "aes 0.9.3",
  "arrayvec",
