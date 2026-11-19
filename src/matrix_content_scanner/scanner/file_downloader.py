@@ -149,10 +149,7 @@ class FileDownloader:
         """
         server_name, media_id = media_path.split("/")
 
-        # Build the full URL, always against the configured base homeserver URL. We
-        # never contact the media's origin homeserver directly, so that we never send
-        # an Authorization header to a server other than the one we've been configured
-        # to trust.
+        # Build the full URL.
         path_prefix = prefix % endpoint_version
         url = "%s/%s/%s/%s" % (
             self._base_url,
