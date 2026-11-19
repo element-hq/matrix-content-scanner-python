@@ -145,7 +145,7 @@ class FileDownloader:
                 this is either "v3" or "r0".
 
         Returns:
-            A URL to use, always based on `base_homeserver_url`.
+            A URL to use, based on `base_homeserver_url`.
         """
         server_name, media_id = media_path.split("/")
 
