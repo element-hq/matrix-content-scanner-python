@@ -89,10 +89,7 @@ result_cache:
 # Configuration for downloading files.
 download:
     # All files are downloaded via the homeserver at this URL, regardless of which
-    # homeserver they originated from. The content scanner never contacts a media's
-    # origin homeserver, so that it never sends an Authorization header
-    # (and thus an access token) to a server other than this one.
-    # It is expected that there is one instance of content scanner per one homeserver.
+    # homeserver they originated from.
     base_homeserver_url: "https://matrix-client.matrix.org"
 
     # HTTP(S) proxy to use when sending requests.
