@@ -200,7 +200,7 @@ class MatrixContentScannerConfig:
         self.web = WebConfig(**(config_dict.get("web") or {}))
         self.scan = ScanConfig(**(config_dict.get("scan") or {}))
         self.crypto = CryptoConfig(**(config_dict.get("crypto") or {}))
-        self.download = DownloadConfig(**(config_dict.get("download") or {}))
+        self.download = DownloadConfig(**config_dict["download"])
         self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
 
         # Don't allow both allowlist and blocklist for MIME types, since we do not document
