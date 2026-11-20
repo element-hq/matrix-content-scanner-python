@@ -58,11 +58,10 @@ deployment instructions) is the configuration format:
 
 * the `server` section is renamed `web`
 * `scan.tempDirectory` is renamed `scan.temp_directory`
-* `scan.baseUrl` is renamed `download.base_homeserver_url` (and becomes optional)
+* `scan.baseUrl` is renamed `download.base_homeserver_url`
 * `scan.doNotCacheExitCodes` is renamed `result_cache.exit_codes_to_ignore`
-* `scan.directDownload` is removed. Direct download always happens when `download.base_homeserver_url`
-  is absent from the configuration file, and setting a value for it will always cause files to be
-  downloaded from the server configured.
+* `scan.directDownload` is removed. Files are downloaded from the homeserver configured
+  in `download.base_homeserver_url`.
 * `proxy` is renamed `download.proxy`
 * `middleware.encryptedBody.pickleKey` is renamed `crypto.pickle_key`
 * `middleware.encryptedBody.picklePath` is renamed `crypto.pickle_path`

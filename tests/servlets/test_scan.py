@@ -20,10 +20,7 @@ SERVER_NAME = "test"
 
 class TestScanHandler(AioHTTPTestCase):
     def setUp(self) -> None:
-        # Bypass well-known lookups.
-        self.scanner = get_content_scanner(
-            {"download": {"base_homeserver_url": "http://my-site.com"}}
-        )
+        self.scanner = get_content_scanner()
 
     async def get_application(self) -> Application:
         return HTTPServer(self.scanner)._app

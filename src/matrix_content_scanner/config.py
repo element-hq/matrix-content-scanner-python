@@ -58,7 +58,7 @@ def _parse_size(size: Optional[Union[str, float]]) -> Optional[float]:
 # Schema to validate the raw configuration dictionary against.
 _config_schema = {
     "type": "object",
-    "required": ["web", "scan", "crypto"],
+    "required": ["web", "scan", "crypto", "download"],
     "additionalProperties": False,
     "properties": {
         "web": {
@@ -84,6 +84,7 @@ _config_schema = {
         },
         "download": {
             "type": "object",
+            "required": ["base_homeserver_url"],
             "additionalProperties": False,
             "properties": {
                 "base_homeserver_url": {"type": "string"},
@@ -153,7 +154,7 @@ class ResultCacheConfig:
 class DownloadConfig:
     """Configuration for downloading files."""
 
-    base_homeserver_url: Optional[str] = None
+    base_homeserver_url: str
     proxy: Optional[str] = None
     additional_headers: Optional[Dict[str, str]] = None
     headers_to_forward: Optional[List[str]] = None
@@ -199,7 +200,7 @@ class MatrixContentScannerConfig:
         self.web = WebConfig(**(config_dict.get("web") or {}))
         self.scan = ScanConfig(**(config_dict.get("scan") or {}))
         self.crypto = CryptoConfig(**(config_dict.get("crypto") or {}))
-        self.download = DownloadConfig(**(config_dict.get("download") or {}))
+        self.download = DownloadConfig(**config_dict["download"])
         self.result_cache = ResultCacheConfig(**(config_dict.get("result_cache") or {}))
 
         # Don't allow both allowlist and blocklist for MIME types, since we do not document

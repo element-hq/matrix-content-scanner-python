@@ -2,18 +2,13 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 # Please see LICENSE files in the repository root for full details.
-import json
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, call
 
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDictProxy, MultiMapping
 
-from matrix_content_scanner.utils.errors import (
-    ContentScannerRestError,
-    WellKnownDiscoveryError,
-)
-from matrix_content_scanner.utils.types import JsonDict
+from matrix_content_scanner.utils.errors import ContentScannerRestError
 
 from tests.testutils import (
     MEDIA_PATH,
@@ -26,7 +21,6 @@ from tests.testutils import (
 
 class FileDownloaderTestCase(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        # Set a fixed base URL so that .well-known discovery doesn't get in the way.
         content_scanner = get_content_scanner(
             {"download": {"base_homeserver_url": "http://my-site.com"}}
         )
@@ -42,9 +36,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
             query: Optional[MultiDictProxy[str]] = None,
             auth_header: Optional[str] = None,
         ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
-            """Mock for the _get method on the file downloader that doesn't serve a
-            .well-known client file.
-            """
+            """Mock for the _get method on the file downloader."""
             if (
                 url.endswith(
                     (
@@ -64,8 +56,6 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
                     return self.media_status, self.media_body, self.media_headers
                 else:
                     return 404, b"Not found", CIMultiDictProxy(CIMultiDict())
-            elif url.endswith("/.well-known/matrix/client"):
-                return 404, b"Not found", CIMultiDictProxy(CIMultiDict())
 
             raise RuntimeError("Unexpected request on %s" % url)
 
@@ -143,30 +133,6 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         args = self.get_mock.call_args.args
         self.assertTrue(args[0].startswith("http://my-site.com/"))
         self.assertIn("/_matrix/client/v1/media/download/" + MEDIA_PATH, args[0])
-
-    async def test_no_base_url(self) -> None:
-        """Tests that configuring a base homeserver URL means files are downloaded from
-        that homeserver (rather than the one the files were uploaded to) and .well-known
-        discovery is bypassed.
-        """
-        self.downloader._base_url = None
-        await self.downloader.download_file(MEDIA_PATH)
-
-        # Check that we've tried making a .well-known discovery request before
-        # downloading the file.
-        self.assertEqual(self.get_mock.call_count, 2)
-        self.assertEqual(
-            self.get_mock.mock_calls[0], call("https://foo/.well-known/matrix/client")
-        )
-        self.assertEqual(
-            self.get_mock.mock_calls[1],
-            call(
-                "https://foo/_matrix/media/v3/download/" + MEDIA_PATH,
-                None,
-                query=None,
-                auth_header=None,
-            ),
-        )
 
     async def test_retry_on_404(self) -> None:
         """Tests that if we get a 404 when trying to download a file on a v3 path, we
@@ -320,99 +286,3 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
                 md.add(k, el)
 
         self.media_headers = CIMultiDictProxy(md)
-
-
-class WellKnownDiscoveryTestCase(IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        self.downloader = get_content_scanner().file_downloader
-
-        self.well_known_status = 200
-        self.well_known_body: Union[bytes, JsonDict] = b""
-
-        self.versions_status = 200
-
-        async def _get(
-            url: str,
-            req_headers: Optional[MultiMapping[str]] = None,
-            query: Optional[MultiDictProxy[str]] = None,
-            auth_header: Optional[str] = None,
-        ) -> Tuple[int, bytes, CIMultiDictProxy[str]]:
-            """Mock for the _get method on the file downloader that serves a .well-known
-            client file.
-            """
-            if url.endswith("/.well-known/matrix/client"):
-                if isinstance(self.well_known_body, bytes):
-                    body_bytes = self.well_known_body
-                else:
-                    body_bytes = json.dumps(self.well_known_body).encode("utf-8")
-
-                return (
-                    self.well_known_status,
-                    body_bytes,
-                    CIMultiDictProxy(CIMultiDict()),
-                )
-            elif url.endswith("/_matrix/client/versions"):
-                return self.versions_status, b"{}", CIMultiDictProxy(CIMultiDict())
-            elif url.endswith("/_matrix/media/v3/download/" + MEDIA_PATH):
-                return 200, SMALL_PNG, get_base_media_headers()
-
-            raise RuntimeError("Unexpected request on %s" % url)
-
-        # Mock _get so we don't actually try to download files.
-        self.get_mock = Mock(side_effect=_get)
-        self.downloader._get = self.get_mock  # type: ignore[method-assign]
-
-    async def test_discover(self) -> None:
-        """Checks that the base URL to use to download files can be discovered via
-        .well-known discovery.
-        """
-        self.well_known_body = {"m.homeserver": {"base_url": "https://foo.bar"}}
-
-        await self.downloader.download_file(MEDIA_PATH)
-
-        # Check that we got 3 calls:
-        #  * one to retrieve the .well-known file
-        #  * one to check that the base URL can be used to interact with a homeserver
-        #    (by hitting the /_matrix/client/versions endpoint)
-        #  * one to download the file
-        self.assertEqual(self.get_mock.call_count, 3, self.get_mock.mock_calls)
-
-        calls = self.get_mock.mock_calls
-
-        self.assertEqual(calls[0], call("https://foo/.well-known/matrix/client"))
-        self.assertTrue(calls[1], call("https://foo.bar/_matrix/client/versions"))
-        self.assertTrue(
-            calls[2], call("https://foo.bar/_matrix/media/v3/download/" + MEDIA_PATH)
-        )
-
-    async def test_error_status(self) -> None:
-        """Tests that we raise a WellKnownDiscoveryError if the server responded with an
-        error."""
-        self.well_known_status = 401
-        await self._assert_discovery_fail()
-
-    async def test_malformed_content(self) -> None:
-        """Tests that we raise a WellKnownDiscoveryError if the server responded with a
-        body that isn't compliant with the Matrix specification."""
-        self.well_known_body = {"m.homeserver": "https://foo.bar"}
-        await self._assert_discovery_fail()
-
-    async def test_not_valid_homeserver(self) -> None:
-        """Tests that we raise a WellKnownDiscoveryError if the server at the provided
-        base URL isn't a Matrix homeserver."""
-        self.versions_status = 404
-        await self._assert_discovery_fail()
-
-    async def test_404_no_fail(self) -> None:
-        """Tests that we don't raise a WellKnownDiscoveryError if the .well-known file
-        couldn't be found, and that we return None instead of the discovered base URL in
-        this case.
-        """
-        self.well_known_status = 404
-        res = await self.downloader._discover_via_well_known("foo")
-        self.assertIsNone(res)
-
-    async def _assert_discovery_fail(self) -> None:
-        """Checks that .well-known discovery fails and raises a WellKnownDiscoveryError."""
-        with self.assertRaises(WellKnownDiscoveryError):
-            await self.downloader._discover_via_well_known("foo")
