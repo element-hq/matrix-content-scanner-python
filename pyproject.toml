@@ -113,7 +113,7 @@ types-PyYAML = ">=6.0.12.20261103"
 types-cachetools = "*"
 types-humanfriendly = "*"
 # for releasing
-"twine" = "*"
+twine = "*"
 
 [tool.poetry.build]
 script = "build_rust.py"
