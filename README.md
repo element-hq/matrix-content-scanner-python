@@ -138,7 +138,7 @@ Synapse developers (assuming a Unix-like shell):
       means this wheel only works on Linux machines with CPython 3.14 on x86_64 with
       glibc 2.44 or newer (the glibc version comes from the build machine, not from what
       the binary needs). Ideally, we'd use something like `cibuildwheel` which will
-      build wheels for all Python versions and platforms against a old compatible base,
+      build wheels for all Python versions and platforms against an old compatible base,
       but we haven't done that yet.
 
  9. Double-check that [the docker image build has
