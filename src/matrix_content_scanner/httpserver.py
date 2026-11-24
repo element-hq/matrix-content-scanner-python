@@ -83,7 +83,7 @@ async def json_errors_middleware(
         )
 
 
-async def _handle_health() -> web.Response:
+async def _handle_health(request: web.Request) -> web.Response:
     return web.Response(text="OK")
 
 
