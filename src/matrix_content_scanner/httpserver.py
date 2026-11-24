@@ -83,6 +83,10 @@ async def json_errors_middleware(
         )
 
 
+async def _handle_health(request: web.Request) -> web.Response:
+    return web.Response(text="OK")
+
+
 class HTTPServer:
     def __init__(self, mcs: "MatrixContentScanner"):
         self._mcs = mcs
@@ -138,6 +142,7 @@ class HTTPServer:
             ],
         )
         root.add_subapp("/_matrix/media_proxy/unstable", app)
+        root.router.add_get("/health", _handle_health)
 
         return root
 

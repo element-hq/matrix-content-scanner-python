@@ -126,8 +126,8 @@ Synapse developers (assuming a Unix-like shell):
 
  8. Create a source distribution and upload it to PyPI:
     ```shell
-    python -m build
-    twine upload dist/matrix_content_scanner-$version*
+    poetry build
+    poetry run twine upload dist/matrix_content_scanner-$version*
     ```
     - XXX: The wheel created on your personal system isn't very portable (but it's what
       we've been doing). There hasn't been much thought put into this as previously we
