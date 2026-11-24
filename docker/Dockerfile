@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.14
 
 FROM docker.io/python:${PYTHON_VERSION}-slim AS requirements
 
