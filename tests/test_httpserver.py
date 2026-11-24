@@ -17,4 +17,3 @@ class HealthEndpointTestCase(AioHTTPTestCase):
         async with self.client.get("/health") as resp:
             self.assertEqual(resp.status, 200)
             self.assertEqual(await resp.text(), "OK")
-
