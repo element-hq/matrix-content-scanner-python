@@ -150,6 +150,12 @@ Example:
 ```
 
 
+### `GET /health`
+
+Health check endpoint, e.g. for container orchestrators or load balancers. Responds with
+`200 OK` and the plain text body `OK` while the server is running.
+
+
 ## Encrypted POST body
 
 When processing encrypted attachments, there are two ways to communicate the metadata
