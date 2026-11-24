@@ -126,8 +126,8 @@ Synapse developers (assuming a Unix-like shell):
 
  8. Create a source distribution and upload it to PyPI:
     ```shell
-    python -m build
-    twine upload dist/matrix_content_scanner-$version*
+    poetry build
+    poetry run twine upload dist/matrix_content_scanner-$version*
     ```
 
  9. Double-check that [the docker image build has
