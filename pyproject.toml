@@ -1,5 +1,12 @@
 [build-system]
-requires = ["poetry-core", "wheel", "setuptools-rust"]
+requires = [
+    # Avoid `poetry-core==2.5` as it has a regression where it produces generic Linux
+    # builds (instead of `manylinux`) that we can't upload to PyPI, see
+    # https://github.com/python-poetry/poetry/issues/11265
+    "poetry-core>=2,<2.5",
+    "wheel",
+    "setuptools-rust"
+]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]

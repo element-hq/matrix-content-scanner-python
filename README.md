@@ -129,6 +129,17 @@ Synapse developers (assuming a Unix-like shell):
     poetry build
     poetry run twine upload dist/matrix_content_scanner-$version*
     ```
+    - XXX: The wheel created on your personal system isn't very portable (but it's what
+      we've been doing). There hasn't been much thought put into this as previously we
+      had a pure Python build (which was compatible everywhere), but since this project
+      now uses Rust, the wheels are platform specific and we've historically only built
+      it on a Linux machine. For example, we end up with a wheel like
+      `dist/matrix_content_scanner-1.5.0-cp314-cp314-manylinux_2_44_x86_64.whl` but this
+      means this wheel only works on Linux machines with CPython 3.14 on x86_64 with
+      glibc 2.44 or newer (the glibc version comes from the build machine, not from what
+      the binary needs). Ideally, we'd use something like `cibuildwheel` which will
+      build wheels for all Python versions and platforms against an old compatible base,
+      but we haven't done that yet.
 
  9. Double-check that [the docker image build has
     succeeded](https://github.com/element-hq/matrix-content-scanner-python/actions/workflows/docker.yaml?query=event%3Apush),
