@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Tuple
 
 from aiohttp import web
 
-from matrix_content_scanner.servlets import _BytesResponse, web_handler
+from matrix_content_scanner.servlets import (
+    _BytesResponse,
+    get_mxc_uri_from_request,
+    web_handler,
+)
 
 if TYPE_CHECKING:
     from matrix_content_scanner.mcs import MatrixContentScanner
@@ -21,10 +25,10 @@ class ThumbnailHandler:
         self, request: web.Request
     ) -> Tuple[int, _BytesResponse]:
         """Handles GET requests to .../thumbnail/serverName/mediaId"""
-        media_path = request.match_info["media_path"]
+        mxc_uri = get_mxc_uri_from_request(request)
 
         media = await self._scanner.scan_file(
-            media_path=media_path,
+            mxc_uri=mxc_uri,
             req_headers=request.headers,
             thumbnail_params=request.query,
             auth_header=request.headers.get("Authorization"),

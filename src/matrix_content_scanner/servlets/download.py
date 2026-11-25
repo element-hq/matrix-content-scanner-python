@@ -5,11 +5,13 @@
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import web
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import MultiMapping
 
 from matrix_content_scanner.servlets import (
     _BytesResponse,
     get_media_metadata_from_request,
+    get_mxc_uri_from_request,
     web_handler,
 )
 from matrix_content_scanner.utils.types import JsonDict
@@ -25,13 +27,13 @@ class DownloadHandler:
 
     async def _scan(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         req_headers: MultiMapping[str],
         metadata: Optional[JsonDict] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, _BytesResponse]:
         media = await self._scanner.scan_file(
-            media_path, req_headers, metadata, auth_header=auth_header
+            mxc_uri, req_headers, metadata, auth_header=auth_header
         )
 
         return 200, _BytesResponse(
@@ -42,9 +44,9 @@ class DownloadHandler:
     @web_handler
     async def handle_plain(self, request: web.Request) -> Tuple[int, _BytesResponse]:
         """Handles GET requests to ../download/serverName/mediaId"""
-        media_path = request.match_info["media_path"]
+        mxc_uri = get_mxc_uri_from_request(request)
         return await self._scan(
-            media_path,
+            mxc_uri,
             request.headers,
             auth_header=request.headers.get("Authorization"),
         )
@@ -54,12 +56,12 @@ class DownloadHandler:
         self, request: web.Request
     ) -> Tuple[int, _BytesResponse]:
         """Handles POST requests to ../download_encrypted"""
-        media_path, metadata = await get_media_metadata_from_request(
+        mxc_uri, metadata = await get_media_metadata_from_request(
             request, self._crypto_handler
         )
 
         return await self._scan(
-            media_path,
+            mxc_uri,
             request.headers,
             metadata,
             auth_header=request.headers.get("Authorization"),
