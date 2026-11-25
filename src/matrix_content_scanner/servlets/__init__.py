@@ -9,6 +9,7 @@ from typing import Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union
 
 import attr
 from aiohttp import web
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import CIMultiDictProxy
 
 from matrix_content_scanner import logutils
@@ -17,7 +18,7 @@ from matrix_content_scanner.utils.constants import ErrCode
 from matrix_content_scanner.utils.encrypted_file_metadata import (
     validate_encrypted_file_metadata,
 )
-from matrix_content_scanner.utils.errors import ContentScannerRestError
+from matrix_content_scanner.utils.errors import ContentScannerRestError, FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict
 
 logger = logging.getLogger(__name__)
@@ -141,12 +142,32 @@ def _to_json_bytes(content: JsonDict) -> bytes:
     return json.dumps(content).encode("UTF-8")
 
 
+def get_mxc_uri_from_request(request: web.Request) -> MXCUri:
+    """Extracts the `server_name/media_id` path from the request's URL and turns it into
+    an MXC URI.
+
+    Args:
+        request: The request to extract the media path from.
+
+    Returns:
+        The MXC URI of the media.
+
+    Raises:
+        FileDirtyError if the media path doesn't form a valid MXC URI.
+    """
+    media_path = request.match_info["media_path"]
+    try:
+        return MXCUri.from_str("mxc://" + media_path)
+    except ValueError:
+        raise FileDirtyError("Malformed media ID")
+
+
 async def get_media_metadata_from_request(
     request: web.Request,
     crypto_handler: crypto.CryptoHandler,
-) -> Tuple[str, JsonDict]:
+) -> Tuple[MXCUri, JsonDict]:
     """Extracts, optionally decrypts, and validates encrypted file metadata from a
-    request body.
+    request body, and parses the file's MXC URI.
 
     Args:
         request: The request to extract the data from.
@@ -154,8 +175,8 @@ async def get_media_metadata_from_request(
             body.
 
     Raises:
-        ContentScannerRestError(400) if the request's body is None or if the metadata
-            didn't pass schema validation.
+        ContentScannerRestError(400) if the request's body is None, if the metadata
+            didn't pass schema validation, or if the file's URL isn't a valid MXC URI.
     """
     if request.content is None:
         raise ContentScannerRestError(
@@ -173,11 +194,13 @@ async def get_media_metadata_from_request(
 
     validate_encrypted_file_metadata(metadata)
 
-    # Get the media path.
-    url = metadata["file"]["url"]
-    media_path = url[len("mxc://") :]
+    # Parse and validate the MXC URI.
+    try:
+        mxc_uri = MXCUri.from_str(metadata["file"]["url"])
+    except ValueError as e:
+        raise ContentScannerRestError(400, ErrCode.MALFORMED_JSON, str(e))
 
-    return media_path, metadata
+    return mxc_uri, metadata
 
 
 def _metadata_from_body(

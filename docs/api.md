@@ -25,7 +25,7 @@ status code of the response for each scenario:
 
 | Status Code | Reason                        | Description                                                                                                                                                                       |
 |-------------|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 400         | `MCS_MALFORMED_JSON`          | The request body contains malformed JSON.                                                                                                                                         |
+| 400         | `MCS_MALFORMED_JSON`          | The request body contains malformed JSON, is missing a required parameter, or the file's `url` is not a valid MXC URI (`mxc://{serverName}/{mediaId}`).                           |
 | 400         | `MCS_MEDIA_FAILED_TO_DECRYPT` | The server failed to decrypt the encrypted media downloaded from the media repo.                                                                                                  |
 | 401         | `M_MISSING_TOKEN`             | The request is missing a required access token for authentication.                                                                                                                |
 | 401         | `M_UNKNOWN_TOKEN`             | The access token provided for authentication is not valid.                                                                                                                        |
@@ -33,6 +33,7 @@ status code of the response for each scenario:
 | 404         | `M_NOT_FOUND`                 | No route could be found at the given path.                                                                                                                                        |
 | 404         | `M_NOT_FOUND`                 | The requested media was not present in the media repo.                                                                                                                            |
 | 403         | `MCS_MEDIA_NOT_CLEAN`         | The server scanned the downloaded media but the antivirus script returned a non-zero exit code.                                                                                   |
+| 403         | `MCS_MEDIA_NOT_CLEAN`         | The `{serverName}/{mediaId}` path in the request does not form a valid MXC URI (`info` is `Malformed media ID`).                                                                  |
 | 403         | `MCS_MIME_TYPE_FORBIDDEN`     | The Mime type is not in the allowed list of Mime types.                                                                                                                           |
 | 403         | `MCS_BAD_DECRYPTION`          | The provided `encrypted_body` could not be decrypted, or the encrypted file could not be decrypted. The client should request the public key of the server and then retry (once). |
 | 500         | `M_UNKNOWN`                   | The server experienced an unexpected error.                                                                                                                                       |

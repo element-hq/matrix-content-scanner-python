@@ -12,6 +12,7 @@ from matrix_content_scanner.utils.errors import ContentScannerRestError
 
 from tests.testutils import (
     MEDIA_PATH,
+    MXC_URI,
     SMALL_PNG,
     get_base_media_headers,
     get_content_scanner,
@@ -65,7 +66,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
 
     async def test_download(self) -> None:
         """Tests that downloading a file works."""
-        media = await self.downloader.download_file(MEDIA_PATH)
+        media = await self.downloader.download_file(MXC_URI)
         self.assertEqual(media.content, SMALL_PNG)
         self.assertEqual(media.content_type, "image/png")
 
@@ -76,7 +77,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
     async def test_download_auth_media(self) -> None:
         """Tests that downloading a file works using authenticated media."""
         media = await self.downloader.download_file(
-            MEDIA_PATH, auth_header="Bearer access_token"
+            MXC_URI, auth_header="Bearer access_token"
         )
         self.assertEqual(media.content, SMALL_PNG)
         self.assertEqual(media.content_type, "image/png")
@@ -99,7 +100,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         # Check that we fail at downloading the file.
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(
-                MEDIA_PATH, auth_header="Bearer access_token"
+                MXC_URI, auth_header="Bearer access_token"
             )
 
         self.assertEqual(cm.exception.http_status, 401)
@@ -123,7 +124,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         # Check that we fail at downloading the file.
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(
-                MEDIA_PATH, auth_header="Bearer access_token"
+                MXC_URI, auth_header="Bearer access_token"
             )
 
         self.assertEqual(cm.exception.http_status, 401)
@@ -161,7 +162,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         """
         # Check that we eventually fail at downloading the file.
         with self.assertRaises(ContentScannerRestError) as cm:
-            await self.downloader.download_file(MEDIA_PATH)
+            await self.downloader.download_file(MXC_URI)
 
         self.assertEqual(cm.exception.http_status, 404)
         self.assertEqual(cm.exception.info, "File not found")
@@ -198,7 +199,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         # Check that we eventually fail at downloading the file.
         with self.assertRaises(ContentScannerRestError) as cm:
             await self.downloader.download_file(
-                MEDIA_PATH, auth_header="Bearer access_token"
+                MXC_URI, auth_header="Bearer access_token"
             )
 
         self.assertEqual(cm.exception.http_status, 404)
@@ -221,7 +222,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         thumbnail are correctly passed on to the homeserver.
         """
         await self.downloader.download_file(
-            MEDIA_PATH, thumbnail_params=to_thumbnail_params({"height": "50"})
+            MXC_URI, thumbnail_params=to_thumbnail_params({"height": "50"})
         )
 
         url: str = self.get_mock.call_args.args[0]
@@ -235,7 +236,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         thumbnail are correctly passed on to the homeserver using authenticated media.
         """
         await self.downloader.download_file(
-            MEDIA_PATH,
+            MXC_URI,
             thumbnail_params=to_thumbnail_params({"height": "50"}),
             auth_header="Bearer access_token",
         )
@@ -254,7 +255,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self._set_headers({"content-type": ["image/jpeg", "image/png"]})
 
         with self.assertRaises(ContentScannerRestError) as cm:
-            await self.downloader.download_file(MEDIA_PATH)
+            await self.downloader.download_file(MXC_URI)
 
         self.assertEqual(cm.exception.http_status, 502)
         assert cm.exception.info is not None
@@ -267,7 +268,7 @@ class FileDownloaderTestCase(IsolatedAsyncioTestCase):
         self._set_headers({})
 
         with self.assertRaises(ContentScannerRestError) as cm:
-            await self.downloader.download_file(MEDIA_PATH)
+            await self.downloader.download_file(MXC_URI)
 
         self.assertEqual(cm.exception.http_status, 502)
         assert cm.exception.info is not None

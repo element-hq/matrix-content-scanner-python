@@ -5,9 +5,14 @@
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from aiohttp import web
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import MultiMapping
 
-from matrix_content_scanner.servlets import get_media_metadata_from_request, web_handler
+from matrix_content_scanner.servlets import (
+    get_media_metadata_from_request,
+    get_mxc_uri_from_request,
+    web_handler,
+)
 from matrix_content_scanner.utils.errors import FileDirtyError
 from matrix_content_scanner.utils.types import JsonDict
 
@@ -22,14 +27,14 @@ class ScanHandler:
 
     async def _scan_and_format(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         req_headers: MultiMapping[str],
         metadata: Optional[JsonDict] = None,
         auth_header: Optional[str] = None,
     ) -> Tuple[int, JsonDict]:
         try:
             await self._scanner.scan_file(
-                media_path, req_headers, metadata, auth_header=auth_header
+                mxc_uri, req_headers, metadata, auth_header=auth_header
             )
         except FileDirtyError as e:
             res = {"clean": False, "info": e.info}
@@ -41,9 +46,13 @@ class ScanHandler:
     @web_handler
     async def handle_plain(self, request: web.Request) -> Tuple[int, JsonDict]:
         """Handles GET requests to ../scan/serverName/mediaId"""
-        media_path = request.match_info["media_path"]
+        try:
+            mxc_uri = get_mxc_uri_from_request(request)
+        except FileDirtyError as e:
+            return 200, {"clean": False, "info": e.info}
+
         return await self._scan_and_format(
-            media_path,
+            mxc_uri,
             request.headers,
             auth_header=request.headers.get("Authorization"),
         )
@@ -51,11 +60,11 @@ class ScanHandler:
     @web_handler
     async def handle_encrypted(self, request: web.Request) -> Tuple[int, JsonDict]:
         """Handles GET requests to ../scan_encrypted"""
-        media_path, metadata = await get_media_metadata_from_request(
+        mxc_uri, metadata = await get_media_metadata_from_request(
             request, self._crypto_handler
         )
         return await self._scan_and_format(
-            media_path,
+            mxc_uri,
             request.headers,
             metadata,
             auth_header=request.headers.get("Authorization"),

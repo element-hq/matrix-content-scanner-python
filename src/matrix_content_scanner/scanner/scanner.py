@@ -16,6 +16,7 @@ import magic
 from cachetools import TTLCache
 from canonicaljson import encode_canonical_json
 from humanfriendly import format_size
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import MultiMapping
 
 from matrix_content_scanner.mcs_rust import crypto
@@ -97,7 +98,7 @@ class Scanner:
 
     async def scan_file(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         req_headers: Optional[MultiMapping[str]] = None,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional["MultiMapping[str]"] = None,
@@ -116,7 +117,7 @@ class Scanner:
         request, don't download it again and use the result from the first request.
 
         Args:
-            media_path: The `server_name/media_id` path for the media.
+            mxc_uri: The MXC URI of the media.
             req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
@@ -131,11 +132,12 @@ class Scanner:
         Raises:
             ContentScannerRestError if the file could not be downloaded.
             FileDirtyError if the result of the scan said that the file is dirty, or if
-                the media path is malformed.
+                the MXC URI would cause the file to be written outside the configured
+                directory.
         """
         # Compute the key to use when caching, both in the current scans cache and in the
         # results cache.
-        cache_key = self._get_cache_key_for_file(media_path, metadata, thumbnail_params)
+        cache_key = self._get_cache_key_for_file(mxc_uri, metadata, thumbnail_params)
         if cache_key not in self._current_scans:
             # Create a future in the context of the current event loop.
             loop = asyncio.get_event_loop()
@@ -147,7 +149,7 @@ class Scanner:
             try:
                 res = await self._scan_file(
                     cache_key,
-                    media_path,
+                    mxc_uri,
                     req_headers,
                     metadata,
                     thumbnail_params,
@@ -175,7 +177,7 @@ class Scanner:
     async def _scan_file(
         self,
         cache_key: str,
-        media_path: str,
+        mxc_uri: MXCUri,
         req_headers: Optional[MultiMapping[str]] = None,
         metadata: Optional[JsonDict] = None,
         thumbnail_params: Optional[MultiMapping[str]] = None,
@@ -192,7 +194,7 @@ class Scanner:
 
         Args:
             cache_key: The key to use to cache the result of the scan in the result cache.
-            media_path: The `server_name/media_id` path for the media.
+            mxc_uri: The MXC URI of the media.
             req_headers: The headers of the request that triggered this call, if any.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
@@ -207,7 +209,8 @@ class Scanner:
         Raises:
             ContentScannerRestError if the file could not be downloaded.
             FileDirtyError if the result of the scan said that the file is dirty, or if
-                the media path is malformed.
+                the MXC URI would cause the file to be written outside the configured
+                directory.
         """
         # The media to scan.
         media: Optional[MediaDescription] = None
@@ -231,7 +234,7 @@ class Scanner:
             )
 
             media = await self._file_downloader.download_file(
-                media_path=media_path,
+                mxc_uri=mxc_uri,
                 req_headers=req_headers,
                 thumbnail_params=thumbnail_params,
                 auth_header=auth_header,
@@ -253,20 +256,10 @@ class Scanner:
 
             del self._result_cache[cache_key]
 
-        # Check if the media path is valid and only contains one slash (otherwise we'll
-        # have issues parsing it further down the line).
-        if media_path.count("/") != 1:
-            info = "Malformed media ID"
-            self._result_cache[cache_key] = CacheEntry(
-                result=False,
-                info=info,
-            )
-            raise FileDirtyError(info)
-
         # Download the file if we don't already have it.
         if media is None:
             media = await self._file_downloader.download_file(
-                media_path=media_path,
+                mxc_uri=mxc_uri,
                 req_headers=req_headers,
                 thumbnail_params=thumbnail_params,
                 auth_header=auth_header,
@@ -274,7 +267,7 @@ class Scanner:
 
         # Download and scan the file.
         try:
-            media, cacheable = await self._scan_media(media, media_path, metadata)
+            media, cacheable = await self._scan_media(media, mxc_uri, metadata)
         except FileDirtyError as e:
             if e.cacheable:
                 logger.info("Caching scan failure")
@@ -323,7 +316,7 @@ class Scanner:
     async def _scan_media(
         self,
         media: MediaDescription,
-        media_path: str,
+        mxc_uri: MXCUri,
         metadata: Optional[JsonDict] = None,
     ) -> Tuple[MediaDescription, bool]:
         """Scans the given media.
@@ -332,7 +325,7 @@ class Scanner:
             media: The already downloaded media. If provided, the download step is
                 skipped. Usually provided if we've re-downloaded a file with a cached
                 result, but the file changed since the initial scan.
-            media_path: The `server_name/media_id` path for the media.
+            mxc_uri: The MXC URI of the media.
             metadata: The metadata attached to the file (e.g. decryption key), or None if
                 the file isn't encrypted.
 
@@ -342,7 +335,8 @@ class Scanner:
 
         Raises:
             FileDirtyError if the result of the scan said that the file is dirty, or if
-                the media path is malformed.
+                the MXC URI would cause the file to be written outside the configured
+                directory.
         """
 
         # Decrypt the content if necessary.
@@ -355,7 +349,7 @@ class Scanner:
         self._check_mimetype(media_content)
 
         # Write the file to disk.
-        file_path = self._write_file_to_disk(media_path, media_content)
+        file_path = self._write_file_to_disk(mxc_uri, media_content)
 
         # Scan the file and see if the result is positive or negative.
         exit_code = await self._run_scan(file_path)
@@ -383,7 +377,7 @@ class Scanner:
 
     def _get_cache_key_for_file(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         metadata: Optional[JsonDict],
         thumbnail_params: Optional[MultiMapping[str]],
     ) -> str:
@@ -397,7 +391,7 @@ class Scanner:
         The resulting key is a sha256 hash of the concatenation of these two values.
 
         Args:
-            media_path: The `server_name/media_id` path of the file to scan.
+            mxc_uri: The MXC URI of the file to scan.
             metadata: The file's metadata (or None if the file isn't encrypted).
             thumbnail_params: The parameters to generate thumbnail with. If no parameter
                 is passed, this will be an empty dict. If the media being requested is not
@@ -412,7 +406,7 @@ class Scanner:
                 thumbnail_params_json[k] = thumbnail_params.getall(k)
 
         hash = hashlib.sha256()
-        hash.update(media_path.encode("utf8"))
+        hash.update(f"{mxc_uri.server_name}/{mxc_uri.media_id}".encode("utf8"))
         hash.update(b"\0")
         hash.update(encode_canonical_json(metadata))
         hash.update(b"\0")
@@ -445,12 +439,12 @@ class Scanner:
                 info=str(e),
             )
 
-    def _write_file_to_disk(self, media_path: str, body: bytes) -> str:
+    def _write_file_to_disk(self, mxc_uri: MXCUri, body: bytes) -> str:
         """Writes the given content to disk. The final file name will be a concatenation
         of `temp_directory` and the media's `server_name/media_id` path.
 
         Args:
-            media_path: The `server_name/media_id` path of the media we're processing.
+            mxc_uri: The MXC URI of the media we're processing.
             body: The bytes to write to disk.
 
         Returns:
@@ -461,7 +455,9 @@ class Scanner:
                 file to be written outside the configured directory.
         """
         # Figure out the full absolute path for this file.
-        full_path = self._store_directory.joinpath(media_path).resolve()
+        full_path = self._store_directory.joinpath(
+            mxc_uri.server_name, mxc_uri.media_id
+        ).resolve()
         try:
             # Check if the full path is a sub-path to the store's path, to make sure
             # there isn't any '..' etc. in the full path, which would cause us to try

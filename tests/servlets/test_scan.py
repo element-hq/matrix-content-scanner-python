@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
 # Please see LICENSE files in the repository root for full details.
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from aiohttp.test_utils import AioHTTPTestCase
 from aiohttp.web_app import Application
@@ -60,3 +60,35 @@ class TestScanHandler(AioHTTPTestCase):
                 self.assertEqual(resp.status, 502)
                 body = await resp.json()
                 self.assertEqual(body["reason"], "MCS_MEDIA_REQUEST_FAILED", body)
+
+    async def test_malformed_media_path(self) -> None:
+        """A media path that doesn't form a valid MXC URI should be rejected without
+        trying to download the media.
+        """
+        download_mock = Mock()
+        patch_downloader = patch.object(
+            self.scanner.file_downloader, "download_file", download_mock
+        )
+
+        with patch_downloader:
+            for media_path in ["foo", "foo/", "foo/bar/baz"]:
+                with self.subTest(media_path=media_path):
+                    for route in ["download", "thumbnail"]:
+                        async with self.client.get(
+                            f"/_matrix/media_proxy/unstable/{route}/{media_path}"
+                        ) as resp:
+                            self.assertEqual(resp.status, 403)
+                            body = await resp.json()
+                            self.assertEqual(body["reason"], "MCS_MEDIA_NOT_CLEAN")
+                            self.assertEqual(body["info"], "Malformed media ID")
+
+                    async with self.client.get(
+                        f"/_matrix/media_proxy/unstable/scan/{media_path}"
+                    ) as resp:
+                        self.assertEqual(resp.status, 200)
+                        body = await resp.json()
+                        self.assertEqual(
+                            body, {"clean": False, "info": "Malformed media ID"}
+                        )
+
+        download_mock.assert_not_called()

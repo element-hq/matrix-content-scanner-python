@@ -6,6 +6,7 @@ import os
 from binascii import unhexlify
 from typing import Dict, Optional
 
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
 
 from matrix_content_scanner.config import MatrixContentScannerConfig
@@ -14,6 +15,9 @@ from matrix_content_scanner.utils.types import JsonDict
 
 # The media path to use in tests.
 MEDIA_PATH = "foo/bar"
+
+# The MXC URI matching MEDIA_PATH.
+MXC_URI = MXCUri.from_str("mxc://" + MEDIA_PATH)
 
 # A small, unencrypted PNG.
 SMALL_PNG = unhexlify(

@@ -9,6 +9,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import aiohttp
+from matrix_common.types.mxc_uri import MXCUri
 from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 
 from matrix_content_scanner.utils.constants import ErrCode
@@ -49,16 +50,15 @@ class FileDownloader:
 
     async def download_file(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         req_headers: Optional[MultiMapping[str]] = None,
         thumbnail_params: Optional[MultiMapping[str]] = None,
         auth_header: Optional[str] = None,
     ) -> MediaDescription:
-        """Retrieve the file with the given `server_name/media_id` path, and stores it on
-        disk.
+        """Retrieve the file with the given MXC URI, and stores it on disk.
 
         Args:
-            media_path: The path identifying the media to retrieve.
+            mxc_uri: The MXC URI identifying the media to retrieve.
             req_headers: The headers of the request that triggered this file download, if any.
                 Will be used to honor `headers_to_forward` setting.
             thumbnail_params: If present, then we want to request and scan a thumbnail
@@ -88,9 +88,7 @@ class FileDownloader:
                 else self.MEDIA_THUMBNAIL_PREFIX
             )
 
-        url = await self._build_https_url(
-            media_path, prefix, "v1" if auth_media else "v3"
-        )
+        url = await self._build_https_url(mxc_uri, prefix, "v1" if auth_media else "v3")
 
         # Attempt to retrieve the file at the generated URL.
         try:
@@ -110,7 +108,7 @@ class FileDownloader:
             # again with an r0 endpoint.
             logger.info("File not found, trying legacy r0 path")
 
-            url = await self._build_https_url(media_path, prefix, "r0")
+            url = await self._build_https_url(mxc_uri, prefix, "r0")
 
             try:
                 file = await self._get_file_content(
@@ -128,18 +126,17 @@ class FileDownloader:
 
     async def _build_https_url(
         self,
-        media_path: str,
+        mxc_uri: MXCUri,
         prefix: str,
         endpoint_version: str,
     ) -> str:
-        """Turn a `server_name/media_id` path into an https:// one we can use to fetch
-        the media.
+        """Turn an MXC URI into an https:// URL we can use to fetch the media.
 
         Note that if `base_homeserver_url` is set to an http URL, it will not be turned
         into an https one.
 
         Args:
-            media_path: The media path to translate.
+            mxc_uri: The MXC URI to translate.
             endpoint_version: The version of the download endpoint to use. As of Matrix
                 v1.11, this is "v1" for authenticated media. For unauthenticated media
                 this is either "v3" or "r0".
@@ -147,15 +144,13 @@ class FileDownloader:
         Returns:
             A URL to use, based on `base_homeserver_url`.
         """
-        server_name, media_id = media_path.split("/")
-
         # Build the full URL.
         path_prefix = prefix % endpoint_version
         url = "%s/%s/%s/%s" % (
             self._base_url,
             path_prefix,
-            urllib.parse.quote(server_name),
-            urllib.parse.quote(media_id),
+            urllib.parse.quote(mxc_uri.server_name),
+            urllib.parse.quote(mxc_uri.media_id),
         )
 
         return url
