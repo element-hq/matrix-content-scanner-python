@@ -102,6 +102,8 @@ humanfriendly = ">=10.0"
 # discoverable in versions older than 1.6.3.
 canonicaljson = ">=1.6.3"
 setuptools_rust = ">=1.3"
+# Required for parsing and validating MXC URIs.
+matrix-common = ">=1.3.0"
 
 [tool.poetry.dev-dependencies]
 # for linting and formatting
